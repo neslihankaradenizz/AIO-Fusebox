@@ -13,9 +13,8 @@
     "vite-plugin-pwa": "^1.2.0"
   },
   "dependencies": {
-    "onnxruntime-web": "^1.14.0"
-  }
-  
+    "onnxruntime-web": "1.14.0"
+}
 }
 
 

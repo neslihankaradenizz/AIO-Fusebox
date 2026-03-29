@@ -12,10 +12,9 @@ let session = null;
  */
 
 export async function loadModel(modelUrl = '/model.onnx') {
-  //const ort = window.ort;
   const threads = Math.min(navigator.hardwareConcurrency ?? 1, 4);
-  
-  ort.env.wasm.wasmPaths = '/';
+
+  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
   ort.env.wasm.simd = true;
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.proxy = false;

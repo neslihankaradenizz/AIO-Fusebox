@@ -1,4 +1,4 @@
-import * as ort from 'onnxruntime-web';
+import * as ort from 'onnxruntime-web/wasm';  // sadece wasm backend
 
 const INPUT_SIZE  = 640;
 const CONF_THRESH = 0.5;
@@ -6,16 +6,7 @@ const IOU_THRESH  = 0.45;
 
 let session = null;
 
-/**
- * ONNX modeli yuklenir
- * @param {string} modelUrl  URL (or path resolved by Vite) to model.onnx
- */
-
 export async function loadModel(modelUrl = '/model.onnx') {
-  const threads = Math.min(navigator.hardwareConcurrency ?? 1, 4);
-
-  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
-  ort.env.wasm.simd = true;
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.proxy = false;
 
@@ -25,6 +16,7 @@ export async function loadModel(modelUrl = '/model.onnx') {
 
   return session;
 }
+
 // Preprocessing
 
 /**

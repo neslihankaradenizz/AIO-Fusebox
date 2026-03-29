@@ -9,7 +9,7 @@ export async function loadModel(modelUrl = '/model.onnx') {
 
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.proxy = false;
-  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/';
+  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/';
 
   session = await ort.InferenceSession.create(modelUrl, {
     executionProviders: ['wasm'],
@@ -17,7 +17,7 @@ export async function loadModel(modelUrl = '/model.onnx') {
 
   return session;
 }
-
+  
 export async function runInference(tensor) {
   if (!session) throw new Error('Model not loaded.');
   const inputName = session.inputNames[0];

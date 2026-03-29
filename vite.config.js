@@ -14,9 +14,8 @@ export default defineConfig({
   },
 
   optimizeDeps: {
-    exclude: ['onnxruntime-web'],
-    include: [],
-  },
+  exclude: ['onnxruntime-web', 'onnxruntime-web/wasm'],
+},
 
   build: {
     target: 'esnext',

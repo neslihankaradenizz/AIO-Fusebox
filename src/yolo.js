@@ -1,5 +1,3 @@
-import * as ort from 'onnxruntime-web';
-
 const INPUT_SIZE  = 640;
 const CONF_THRESH = 0.5;
 const IOU_THRESH  = 0.45;
@@ -7,9 +5,10 @@ const IOU_THRESH  = 0.45;
 let session = null;
 
 export async function loadModel(modelUrl = '/model.onnx') {
+  const ort = window.ort;
+
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.proxy = false;
-  ort.env.wasm.simd = true;
   ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/';
 
   session = await ort.InferenceSession.create(modelUrl, {
@@ -20,7 +19,7 @@ export async function loadModel(modelUrl = '/model.onnx') {
 }
 
 export async function runInference(tensor) {
-  if (!session) throw new Error('Model not loaded. Call loadModel() first.');
+  if (!session) throw new Error('Model not loaded.');
   const inputName = session.inputNames[0];
   const feeds = { [inputName]: tensor };
   const results = await session.run(feeds);

@@ -14,12 +14,15 @@ export default defineConfig({
   },
 
   optimizeDeps: {
-  exclude: ['onnxruntime-web', 'onnxruntime-web/wasm'],
+  exclude: ['onnxruntime-web'],
 },
 
   build: {
     target: 'esnext',
     outDir: 'dist',
+    rollupOptions: {
+       external: ['onnxruntime-web'],
+    },
   },
 
   plugins: [

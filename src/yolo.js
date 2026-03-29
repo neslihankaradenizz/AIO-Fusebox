@@ -29,7 +29,7 @@ export async function loadModel(modelUrl = '/model.onnx') {
 
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.proxy = false;
-  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/';
+  ort.env.wasm.wasmPaths = 'https://pub-ab85a7c2842c4b06ad93b8956e41e3ba.r2.dev/';
 
   session = await ort.InferenceSession.create(modelUrl, {
     executionProviders: ['wasm'],

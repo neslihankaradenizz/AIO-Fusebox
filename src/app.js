@@ -283,7 +283,7 @@ async function init() {
 
     loadingMsg.textContent = 'Model yükleniyor…';
     //await loadModel('/model.onnx');
-    const modelResponse = await fetchWithCache('/model.onnx');
+    const modelResponse = await fetchWithCache('https://pub-ab85a7c2842c4b06ad93b8956e41e3ba.r2.dev/model.onnx');
     const modelBuffer   = await modelResponse.arrayBuffer();
     await loadModel(modelBuffer);
 

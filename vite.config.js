@@ -14,14 +14,14 @@ export default defineConfig({
   },
 
   optimizeDeps: {
-  exclude: ['onnxruntime-web'],
-},
+    exclude: ['onnxruntime-web'],
+  },
 
   build: {
     target: 'esnext',
     outDir: 'dist',
     rollupOptions: {
-       external: ['onnxruntime-web'],
+      external: ['onnxruntime-web'],
     },
   },
 
@@ -62,6 +62,20 @@ export default defineConfig({
 
         runtimeCaching: [
           {
+            urlPattern: /pub-ab85a7c2842c4b06ad93b8956e41e3ba\.r2\.dev\/.*/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'r2-assets',
+              expiration: {
+                maxEntries: 5,
+                maxAgeSeconds: 60 * 60 * 24 * 365,
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          {
             urlPattern: /.*\.onnx$/,
             handler: 'CacheFirst',
             options: {
@@ -70,13 +84,6 @@ export default defineConfig({
                 maxEntries: 2,
                 maxAgeSeconds: 60 * 60 * 24 * 365,
               },
-            },
-          },
-          {
-            urlPattern: /.*\.json$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'data',
             },
           },
         ],

@@ -4,8 +4,18 @@ const IOU_THRESH  = 0.45;
 
 let session = null;
 
+async function getOrt() {
+  if (window.ort) return window.ort;
+  await new Promise(resolve => {
+    const check = setInterval(() => {
+      if (window.ort) { clearInterval(check); resolve(); }
+    }, 50);
+  });
+  return window.ort;
+}
+
 export async function loadModel(modelUrl = '/model.onnx') {
-  const ort = window.ort;
+  const ort = await getOrt();
 
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.proxy = false;

@@ -14,8 +14,9 @@ export default defineConfig({
   },
 
   optimizeDeps: {
-  exclude: ['onnxruntime-web', 'onnxruntime-web/wasm'],
-},
+    exclude: ['onnxruntime-web'],
+    include: [],
+  },
 
   build: {
     target: 'esnext',
@@ -51,33 +52,13 @@ export default defineConfig({
       workbox: {
         maximumFileSizeToCacheInBytes: 50 * 1024 * 1024,
 
-        globIgnores: [
-          '**/*.wasm',
-          '**/ort-wasm*'
+        globPatterns: [
+          '**/*.{js,css,html,json,wasm}'
         ],
 
+        globIgnores: [],
+
         runtimeCaching: [
-          {
-            urlPattern: /.*\.wasm$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'wasm-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365,
-              },
-            },
-          },
-          {
-            urlPattern: ({ request }) =>
-              request.destination === 'document' ||
-              request.destination === 'script' ||
-              request.destination === 'style',
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'app-shell',
-            },
-          },
           {
             urlPattern: /.*\.onnx$/,
             handler: 'CacheFirst',

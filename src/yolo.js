@@ -9,6 +9,7 @@ let session = null;
 export async function loadModel(modelUrl = '/model.onnx') {
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.proxy = false;
+  ort.env.wasm.wasmPaths = '/';  // kendi dist'inden yükle
 
   session = await ort.InferenceSession.create(modelUrl, {
     executionProviders: ['wasm'],

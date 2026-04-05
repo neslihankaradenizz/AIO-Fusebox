@@ -29,8 +29,7 @@ export async function loadModel(modelUrl = '/model.onnx') {
 
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.proxy = false;
-  ort.env.wasm.wasmPaths = 'https://pub-ab85a7c2842c4b06ad93b8956e41e3ba.r2.dev/';
-
+  ort.env.wasm.wasmPaths = 'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/';
   session = await ort.InferenceSession.create(modelUrl, {
     executionProviders: ['wasm'],
     sessionOptions: {

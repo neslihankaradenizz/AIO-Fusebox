@@ -256,11 +256,7 @@ async function fetchWithCache(url) {
     }
 
     console.log('[Cache] İndiriliyor...');
-    const response = await fetch(url, {
-      headers: {
-        'ngrok-skip-browser-warning': 'true'  // ← bunu ekle
-      }
-    });
+    const response = await fetch(url);
     if (response.ok) cache.put(CACHE_KEY, response.clone());
     return response;
   } catch (e) {
@@ -283,10 +279,10 @@ async function init() {
 
     loadingMsg.textContent = 'Model yükleniyor…';
     //await loadModel('/model.onnx');
-    const modelResponse = await fetchWithCache('https://pub-ab85a7c2842c4b06ad93b8956e41e3ba.r2.dev/model.onnx');
-    const modelBuffer   = await modelResponse.arrayBuffer();
+    const modelResponse = await fetchWithCache('https://aoi-fusebox1.neslihan-krdnz53.workers.dev/model.onnx');
+    const modelBuffer = await modelResponse.arrayBuffer();
     await loadModel(modelBuffer);
-
+    
     loadingOverlay.classList.add('hidden');
     statusText.textContent = 'Hazır';
     startPreviewLoop();

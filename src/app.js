@@ -270,7 +270,9 @@ async function fetchWithCache(url) {
 async function init() {
   try {
     loadingMsg.textContent = 'Kombinasyonlar yükleniyor…';
-    await loadValidCombinations(import.meta.env.BASE_URL + 'valid.json');
+    const validUrl = import.meta.env.BASE_URL + 'valid.json';
+    console.log('[Debug] valid.json URL:', validUrl);
+    await loadValidCombinations(validUrl);
 
     loadingMsg.textContent = 'Kamera başlatılıyor…';
     await startCamera(video);

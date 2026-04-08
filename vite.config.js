@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  base:'AIO-Fusebox',
+  base:'/AIO-Fusebox/',
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',

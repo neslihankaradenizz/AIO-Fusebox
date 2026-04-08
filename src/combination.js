@@ -27,13 +27,13 @@ export async function loadValidCombinations(url = '/valid.json') {
  *
  * Sıralama:
  *  1. Blok (X'e göre — soldan sağa, 3 blok)
- *  2. Sütun içi sıra (left → middle → right — X'e göre)
+ *  2. Sütun içi sıra (left → right — X'e göre)
  *  3. Pozisyon (Y'ye göre — yukarıdan aşağıya)
  *
  * @param {Array} detections  [{classId, x, y, width, height, confidence}]
  * @returns {Array} sıralanmış detections
  */
-function sortDetections(detections) {
+export function sortDetections(detections) {
   if (detections.length === 0) return [];
 
   // Tüm x merkezlerini hesapla
@@ -45,12 +45,14 @@ function sortDetections(detections) {
 
   // X aralığını bul ve 9 sütuna böl (3 blok × 3 sütun)
   const allCx = withCenter.map(d => d.cx);
-  const midX  = (Math.min(...allCx) + Math.max(...allCx)) / 2;
-
+  const minX=Math.min(...allCx);
+  const maxX=Math.max(...allCx);
+  const midX=(minX+maxX)/2;
+  
   // Her detection'a sütun indeksi ata (0–8)
   const withCol = withCenter.map(d => ({
     ...d,
-    colIndex: Math.round(((d.cx - minX) / range) * 8),
+    colIndex: d.cx<midX ? 0:1, //0=left 1 right
   }));
 
   // Sütun indeksine ve Y'ye göre sırala

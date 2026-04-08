@@ -1,7 +1,7 @@
 import { startCamera }            from './camera.js';
 import { loadModel, runInference, postprocess } from './yolo.js';
 import { syncCanvasSize, clearCanvas, drawRoi, drawDetections, getRoi } from './overlay.js';
-import { loadValidCombinations, validateCombination } from './combination.js';
+import { loadValidCombinations, validateCombination, sortDetections } from './combination.js';
 
 const CACHE_NAME = 'fusebox-v3';
 
@@ -72,7 +72,6 @@ async function startPreviewLoop() {
    loopTimer = setTimeout(loop, 0);
 }
   
-
 function stopPreviewLoop() {
   previewRunning = false;
   if (loopTimer !== null) {
@@ -208,9 +207,25 @@ btnMatch.addEventListener('click', async () => {
 
     bottomBar.className       = state === 'ok' ? 'ok' : state === 'nok' ? 'nok' : '';
     resultLabel.textContent   = state === 'ok' ? 'OK' : state === 'nok' ? 'NOK' : '—';
-    detectedIdsEl.textContent = classIds.length > 0
-      ? `IDs: [${classIds.join(', ')}]`
-      : 'Nesne bulunamadı';
+    //detectedIdsEl.textContent = classIds.length > 0
+    //  ? `IDs: [${classIds.join(', ')}]`
+    //  : 'Nesne bulunamadı';
+    if (classIds.length > 0) {
+        const sorted = sortDetections(detections); 
+        const left  = sorted.filter(d => d.colIndex === 0).map(d => d.classId);
+        const right = sorted.filter(d => d.colIndex === 1).map(d => d.classId);
+        const rows  = Math.max(left.length, right.length);
+        let matrix  = 'L | R\n';
+        matrix += '--------\n';
+        for (let i = 0; i < rows; i++) {
+          const l = left[i]  !== undefined ? String(left[i]).padStart(2)  : ' —';
+          const r = right[i] !== undefined ? String(right[i]).padStart(2) : ' —';
+          matrix += `${l}  |  ${r}\n`;
+        }
+        detectedIdsEl.textContent = matrix;
+      } else {
+        detectedIdsEl.textContent = 'Nesne bulunamadı';
+      }
     statusText.textContent    = state === 'ok' ? 'Eşleşme bulundu ✓' : 'Eşleşme yok';
 
   } catch (err) {
@@ -243,8 +258,6 @@ btnRetake.addEventListener('click', () => {
 });
 
 //MODEL CACHE 
-
-
 async function fetchWithCache(url) {
   try {
     const cache = await caches.open(CACHE_NAME);
@@ -266,11 +279,13 @@ async function fetchWithCache(url) {
     });
   }
 }
-// Init
+
 async function init() {
   try {
     loadingMsg.textContent = 'Kombinasyonlar yükleniyor…';
-    await loadValidCombinations(import.meta.env.BASE_URL + 'valid.json');
+    const validUrl = import.meta.env.BASE_URL + 'valid.json';
+    console.log('[Debug] valid.json URL:', validUrl);
+    await loadValidCombinations(validUrl);
 
     loadingMsg.textContent = 'Kamera başlatılıyor…';
     await startCamera(video);
@@ -278,7 +293,6 @@ async function init() {
     syncCanvasSize(canvas, video);
 
     loadingMsg.textContent = 'Model yükleniyor…';
-    //await loadModel('/model.onnx');
     const modelResponse = await fetchWithCache('https://aoi-fusebox1.neslihan-krdnz53.workers.dev/model.onnx');
     const modelBuffer = await modelResponse.arrayBuffer();
     await loadModel(modelBuffer);

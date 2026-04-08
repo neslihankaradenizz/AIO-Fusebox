@@ -17,9 +17,7 @@ let validCombinations = [];
  */
 
 export async function loadValidCombinations(url = '/valid.json') {
-  const response = await fetch(url, {
-    headers: { 'ngrok-skip-browser-warning': 'true' }
-  });
+  const response = await fetch(url);
   if (!response.ok) throw new Error(`valid.json yüklenemedi: ${response.status}`);
   const data = await response.json();
   validCombinations = data.combinations;
@@ -46,10 +44,8 @@ function sortDetections(detections) {
   }));
 
   // X aralığını bul ve 9 sütuna böl (3 blok × 3 sütun)
-  const allCx = withCenter.map(d => d.cx).sort((a, b) => a - b);
-  const minX  = allCx[0];
-  const maxX  = allCx[allCx.length - 1];
-  const range = maxX - minX || 1;
+  const allCx = withCenter.map(d => d.cx);
+  const midX  = (Math.min(...allCx) + Math.max(...allCx)) / 2;
 
   // Her detection'a sütun indeksi ata (0–8)
   const withCol = withCenter.map(d => ({
@@ -73,6 +69,7 @@ function sortDetections(detections) {
  * @param {Array}    detections        - ham detections 
  * @returns {'ok' | 'nok' | 'unknown'}
  */
+
 export function validateCombination(detectedClassIds, detections = null) {
   if (!detectedClassIds || detectedClassIds.length === 0) return 'unknown';
 

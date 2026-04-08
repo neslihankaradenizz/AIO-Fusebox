@@ -2,12 +2,13 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  base:'AIO-Fusebox',
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
         name: 'AIO-FuseBox Vision',
-        short_name: 'FuseBox',
+        short_name: 'AIOFuseBox',
         description: 'AIO-Fusebox Vision',
         theme_color: '#0d0d0f',
         background_color: '#0d0d0f',

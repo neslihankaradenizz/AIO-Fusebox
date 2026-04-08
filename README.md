@@ -1,16 +1,3 @@
-npm install -D vite-plugin-pwa
-
-
-terminale
-npx ngrok config add-authtoken 3BNsTK3CH3kN194NzOssqJMQ6JU_7SYxHoWGcwDrMUzuqDNz1
-
-ayrı bir terminale
-npx ngrok http 5173
-npm run dev
-
-/model.onnx — aynı YOLOv8 export formatında olduğu sürece (shape: [1, 4+numClasses, 8400]) sorunsuz çalışır
-/valid.json — combination.js'in beklediği formatta olduğu sürece sorunsuz çalışır
-
 # YOLOv8 Web Nesne Tespiti
 ONNX Runtime Web aracılığıyla tarayıcıda çalışan, tamamen istemci taraflı (client-side) bir YOLOv8 nesne tespiti web uygulamasıdır.
 

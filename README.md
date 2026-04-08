@@ -1,23 +1,7 @@
 # YOLOv8 Web Nesne Tespiti
 ONNX Runtime Web aracılığıyla tarayıcıda çalışan, tamamen istemci taraflı (client-side) bir YOLOv8 nesne tespiti web uygulamasıdır.
 
-## Proje Yapısı
-```
-├── public/
-│   └── model.onnx        ← YOLOv8 ONNX modeli
-├── src/
-│   ├── app.js            ← ana döngü
-│   ├── camera.js         ← getUserMedia (kamera erişimi)
-│   ├── yolo.js           ← ONNX çıkarımı + NMS
-│   ├── overlay.js        ← canvas çizimi
-│   └── combination.js    ← OK/NOK doğrulaması
-├── valid.json            ← geçerli sınıf-ID kombinasyonları
-├── index.html
-├── vite.config.js
-└── package.json
-```
-
-## Çıkarım (Inference) Detayları
+## ÇInference Detayları
 | Ayar | Değer |
 |---|---|
 | Giriş boyutu | 640 × 640 |

@@ -33,7 +33,7 @@ export async function loadValidCombinations(url = '/valid.json') {
  * @param {Array} detections  [{classId, x, y, width, height, confidence}]
  * @returns {Array} sıralanmış detections
  */
-function sortDetections(detections) {
+export function sortDetections(detections) {
   if (detections.length === 0) return [];
 
   // Tüm x merkezlerini hesapla

@@ -275,7 +275,7 @@ async function fetchWithCache(url) {
   } catch (e) {
     console.warn('[Cache] Hata:', e.message);
     return fetch(url, {
-      headers: { 'ngrok-skip-browser-warning': 'true' }
+      //headers: { 'ngrok-skip-browser-warning': 'true' }
     });
   }
 }

@@ -296,8 +296,7 @@ async function init() {
     const modelResponse = await fetchWithCache('https://aoi-fusebox1.neslihan-krdnz53.workers.dev/model_v2.onnx');
     const modelBuffer = await modelResponse.arrayBuffer();
     await loadModel(modelBuffer);
-    console.log("Loading model:", MODEL_URL);
-    
+
     loadingOverlay.classList.add('hidden');
     statusText.textContent = 'Hazır';
     startPreviewLoop();

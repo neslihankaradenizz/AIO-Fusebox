@@ -30,6 +30,7 @@ export async function loadModel(modelUrl = '/model_v2.onnx') {
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.proxy = false;
   ort.env.wasm.wasmPaths = 'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/';
+  
   session = await ort.InferenceSession.create(modelUrl, {
     executionProviders: ['wasm'],
     sessionOptions: {
@@ -38,8 +39,11 @@ export async function loadModel(modelUrl = '/model_v2.onnx') {
       intraOpNumThreads: 1,
     },
   });
-  console.log("Model loaded:", modelUrl);
   
+  const modelUrl = "https://aoi-fusebox1.neslihan-krdnz53.workers.dev/model_v2.onnx";
+  const o = await (await vt(modelUrl)).arrayBuffer();
+  console.log("Loading model:", modelUrl);
+
   return session;
 }
 

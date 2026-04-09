@@ -38,9 +38,11 @@ export async function loadModel(modelUrl = '/model_v2.onnx') {
       intraOpNumThreads: 1,
     },
   });
-
+  console.log("Model loaded:", modelUrl);
+  
   return session;
 }
+
 
 export async function runInference(tensor) {
   if (!session) throw new Error('Model not loaded. Call loadModel() first.');

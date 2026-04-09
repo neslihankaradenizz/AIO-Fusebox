@@ -41,7 +41,7 @@ export async function loadModel(modelUrl = '/model_v2.onnx') {
   });
 
   const MODEL_URL_STATIC = "https://aoi-fusebox1.neslihan-krdnz53.workers.dev/model_v2.onnx";
-  const o = await (await vt(MODEL_URL_STATIC)).arrayBuffer();
+  const o = await (await kt(MODEL_URL_STATIC)).arrayBuffer();
   console.log("Loading model:", MODEL_URL_STATIC);
 
   return session;

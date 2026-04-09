@@ -24,7 +24,7 @@ async function getOrt() {
   });
 }
 
-export async function loadModel(modelUrl = '/model.onnx') {
+export async function loadModel(modelUrl = '/model_v2.onnx') {
   const ort = await getOrt();
 
   ort.env.wasm.numThreads = 1;

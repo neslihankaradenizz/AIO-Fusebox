@@ -62,7 +62,7 @@ async function startInferenceLoop() {
     } catch {
       lastHadDetections = false;
     }
-    loopTimer = setTimeout(inferLoop, 0);
+    loopTimer = setTimeout(inferLoop, isLowEnd ? 200 : 100);
   }
   loopTimer = setTimeout(inferLoop, 0);
 }
@@ -85,11 +85,14 @@ function stopPreviewLoop() {
 btnCapture.addEventListener('click', () => {
   stopPreviewLoop();
 
-  const captured = document.createElement('canvas');
-  captured.width  = video.videoWidth;
-  captured.height = video.videoHeight;
-  captured.getContext('2d').drawImage(video, 0, 0);
-  capturedCanvas = captured;
+  // Tam frame'e gerek yok — direkt ROI canvas'ı al
+  const { cropped, roi } = cropRoi(video);
+
+  // Sadece ROI'yi sakla
+  capturedCanvas = document.createElement('canvas');
+  capturedCanvas.width  = roi.w;
+  capturedCanvas.height = roi.h;
+  capturedCanvas.getContext('2d').drawImage(cropped, 0, 0);
 
   snapshot.src = captured.toDataURL('image/jpeg');
   snapshot.style.display = 'block';
@@ -119,7 +122,9 @@ btnMatch.addEventListener('click', async () => {
   try {
     syncCanvasSize(canvas, snapshot);
 
-    const { cropped, roi } = cropRoi(capturedCanvas);
+    //const { cropped, roi } = cropRoi(capturedCanvas);
+    const cropped = capturedCanvas;
+    const roi = { x: 0, y: 0, w: capturedCanvas.width, h: capturedCanvas.height };
 
     const meta         = preprocessCanvas(cropped);
     const outputTensor = await runInference(meta.tensor);
@@ -147,7 +152,7 @@ btnMatch.addEventListener('click', async () => {
         const left  = sorted.filter(d => d.colIndex === 0).map(d => getClassName(d.classId));
         const right = sorted.filter(d => d.colIndex === 1).map(d => getClassName(d.classId));
         const rows  = Math.max(left.length, right.length);
-        
+
         let html = `
           <table style="width:100%; border-collapse:collapse; text-align:center;">
             <thead>

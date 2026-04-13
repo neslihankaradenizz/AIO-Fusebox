@@ -179,8 +179,8 @@ const offscreenModelCtx = offscreenModel.getContext('2d', { willReadFrequently: 
 
 export function preprocessCanvas(srcCanvas) {
   if (!INPUT_SIZE) throw new Error('INPUT_SIZE henüz set edilmedi. loadModel() bekleniyor.');
-  offscreenModel.width  = INPUT_SIZE;
-  offscreenModel.height = INPUT_SIZE;
+  if (offscreenModel.width !== INPUT_SIZE) offscreenModel.width  = INPUT_SIZE;
+  if (offscreenModel.height !== INPUT_SIZE) offscreenModel.height = INPUT_SIZE;
 
   const vw = srcCanvas.width;
   const vh = srcCanvas.height;

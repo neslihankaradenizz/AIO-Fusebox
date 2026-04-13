@@ -1,8 +1,8 @@
 const CONF_THRESH = 0.5;
 const IOU_THRESH  = 0.45;
 
-let session = null;
-let İNPUT_SİZE=null;
+let session   = null;
+let INPUT_SIZE = null;  // loadModel() sonrası modelin input shape'inden okunur
 
 async function getOrt() {
   if (window.ort) return window.ort;
@@ -26,7 +26,7 @@ async function getOrt() {
 
 export async function loadModel(modelUrl = '/best_fuseboxV1.onnx') {
   const ort = await getOrt();
- 
+
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.proxy = false;
   ort.env.wasm.wasmPaths = 'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/';
@@ -39,20 +39,26 @@ export async function loadModel(modelUrl = '/best_fuseboxV1.onnx') {
       intraOpNumThreads: 1,
     },
   });
- 
-  const inputMeta = session.inputMetadata?.[session.inputNames[0]];
-  if (inputMeta?.dimensions) {
-    const dims = inputMeta.dimensions;         
-    const h = Number(dims[2]);
-    const w = Number(dims[3]);
-    if (h !== w) console.warn(`[YOLO] Kare olmayan input: ${h}×${w}, H kullanılacak`);
-    INPUT_SIZE = h;
-  } else {
-    INPUT_SIZE = 1024;
-    console.warn('[YOLO] inputMetadata okunamadı, INPUT_SIZE=1024 varsayıldı');
+
+  // Input shape'i modelden oku — birden fazla ORT API versiyonunu destekler
+  try {
+    const inputName = session.inputNames[0];
+    const meta = session.inputMetadata?.[inputName]      // ORT ≥1.14
+               ?? session.inputInfo?.[inputName];        // eski API
+
+    if (meta?.dimensions) {
+      INPUT_SIZE = Number(meta.dimensions[2]);            // [1, 3, H, W] → H
+    } else {
+      // Fallback: dummy tensor ile shape çıkar
+      INPUT_SIZE = 640;
+      console.warn('[YOLO] inputMetadata yok, INPUT_SIZE=640 varsayıldı');
+    }
+  } catch {
+    INPUT_SIZE = 640;
+    console.warn('[YOLO] Shape okunamadı, INPUT_SIZE=640 varsayıldı');
   }
-  console.log('[YOLO] INPUT_SIZE modelden okundu:', INPUT_SIZE);
- 
+
+  console.log('[YOLO] INPUT_SIZE:', INPUT_SIZE);
   return session;
 }
 
@@ -69,6 +75,7 @@ const offscreenModelCtx = offscreenModel.getContext('2d', { willReadFrequently: 
 
 // Preprocess — offscreen → offscreenModel
 export function preprocessCanvas(srcCanvas) {
+  if (!INPUT_SIZE) throw new Error('INPUT_SIZE henüz set edilmedi. loadModel() bekleniyor.');
   offscreenModel.width  = INPUT_SIZE;
   offscreenModel.height = INPUT_SIZE;
   //const ctx = offscreenModel.getContext('2d',{willReadFrequently: true});

@@ -36,37 +36,43 @@ window.addEventListener('resize', onResize);
 let lastHadDetections = false;
 let loopTimer         = null
 
-// Canlı ROI önizleme
-async function startPreviewLoop() {
-  previewRunning = true;
-
-  async function loop() {
+// UI loop — sadece cizim, 30fps
+async function startUILoop() {
+  function uiLoop() {
     if (!previewRunning) return;
-
     clearCanvas(canvas);
     drawRoi(canvas, lastHadDetections);
-    loopTimer = setTimeout(loop, 1000 / 30); // UI 30fps
-    //const now = performance.now();
-    //if (now - lastInferenceTime >= INFERENCE_INTERVAL) {
-      //lastInferenceTime = now;
-
-      try {
-        if (video.readyState >= video.HAVE_ENOUGH_DATA) {
-          const { cropped } = cropRoi(video);
-          const meta         = preprocessCanvas(cropped);
-          const outputTensor = await runInference(meta.tensor);
-          const detections   = postprocess(outputTensor, cropped.width, cropped.height, meta);
-          lastHadDetections  = detections.length > 0;
-        }
-      } catch {
-        lastHadDetections = false;
-      }
-      loopTimer = setTimeout(loop, INFERENCE_INTERVAL);
-    }
-
-   loopTimer = setTimeout(loop, 0);
+    requestAnimationFrame(uiLoop); // setTimeout yerine rAF
+  }
+  requestAnimationFrame(uiLoop);
 }
-  
+
+// Inference loop — ayrı dusuk FPS
+async function startInferenceLoop() {
+  async function inferLoop() {
+    if (!previewRunning) return;
+    try {
+      if (video.readyState >= video.HAVE_ENOUGH_DATA) {
+        const { cropped } = cropRoi(video);
+        const meta         = preprocessCanvas(cropped);
+        const outputTensor = await runInference(meta.tensor);
+        const detections   = postprocess(outputTensor, cropped.width, cropped.height, meta);
+        lastHadDetections  = detections.length > 0;
+      }
+    } catch {
+      lastHadDetections = false;
+    }
+    loopTimer = setTimeout(inferLoop, INFERENCE_INTERVAL);
+  }
+  loopTimer = setTimeout(inferLoop, 0);
+}
+
+async function startPreviewLoop() {
+  previewRunning = true;
+  startUILoop();
+  startInferenceLoop();
+}
+
 function stopPreviewLoop() {
   previewRunning = false;
   if (loopTimer !== null) {

@@ -16,6 +16,14 @@ const CLASS_STYLES = {
 
 const DEFAULT_STYLE = { color: '#f59e0b', label: '?' };
 
+function getRoi(canvas) {
+  return {
+    x: Math.round(canvas.width  * ROI_RATIO.x),
+    y: Math.round(canvas.height * ROI_RATIO.y),
+    w: Math.round(canvas.width  * ROI_RATIO.w),
+    h: Math.round(canvas.height * ROI_RATIO.h),
+  };
+}
 export function syncCanvasSize(canvas, source) {
   canvas.width  = source.clientWidth  || source.offsetWidth;
   canvas.height = source.clientHeight || source.offsetHeight;

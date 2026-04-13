@@ -24,7 +24,7 @@ let previewRunning = false;
 // FPS ADAPTASYONU 
 const isLowEnd = (navigator.hardwareConcurrency ?? 4) <= 4 ||
                  (navigator.deviceMemory        ?? 4) <= 2;
-const INFERENCE_INTERVAL = isLowEnd ? 1000 / 4 : 1000 / 8;
+const INFERENCE_INTERVAL = isLowEnd ? 1000 / 2 : 1000 / 4;
 console.log(`[Perf] ${isLowEnd ? 'Düşük uçlu' : 'Yüksek uçlu'} cihaz — ${isLowEnd ? 4 : 8} FPS`);
 
 function onResize() {
@@ -45,7 +45,7 @@ async function startPreviewLoop() {
 
     clearCanvas(canvas);
     drawRoi(canvas, lastHadDetections);
-
+    loopTimer = setTimeout(loop, 1000 / 30); // UI 30fps
     //const now = performance.now();
     //if (now - lastInferenceTime >= INFERENCE_INTERVAL) {
       //lastInferenceTime = now;

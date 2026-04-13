@@ -1,11 +1,10 @@
 // yolo.worker.js
 import { loadModel, runInference, preprocessCanvas, postprocess } from './yolo.js';
 
+// yolo.worker.js
 async function loadOrt(ortUrl) {
-  // ORT script'ini fetch et, eval ile çalıştır
-  const res  = await fetch(ortUrl);
-  const code = await res.text();
-  (0, eval)(code); // self.ort'u tanımlar
+  // fetch + eval yerine importScripts kullan — SW'yi bypass eder
+  importScripts(ortUrl);  // ✅ CORS sorununu aşar, SW yakalamaz
 }
 
 self.onmessage = async (e) => {

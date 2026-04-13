@@ -146,6 +146,8 @@ btnMatch.addEventListener('click', async () => {
         const sorted = sortDetections(detections, roi.w); 
         const left  = sorted.filter(d => d.colIndex === 0).map(d => getClassName(d.classId));
         const right = sorted.filter(d => d.colIndex === 1).map(d => getClassName(d.classId));
+        const rows  = Math.max(left.length, right.length);
+        
         let html = `
           <table style="width:100%; border-collapse:collapse; text-align:center;">
             <thead>
@@ -170,8 +172,8 @@ btnMatch.addEventListener('click', async () => {
 
         html += `</tbody></table>`;
         detectedIdsEl.innerHTML = html;
+
         
-        const rows  = Math.max(left.length, right.length);
         let matrix  = 'L | R\n';
         matrix += '--------\n';
         for (let i = 0; i < rows; i++) {

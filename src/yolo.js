@@ -2,6 +2,7 @@ const CONF_THRESH = 0.5;
 const IOU_THRESH  = 0.45;
 
 let session = null;
+let İNPUT_SİZE=null;
 
 async function getOrt() {
   if (window.ort) return window.ort;
@@ -25,7 +26,7 @@ async function getOrt() {
 
 export async function loadModel(modelUrl = '/best_fuseboxV1.onnx') {
   const ort = await getOrt();
-
+ 
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.proxy = false;
   ort.env.wasm.wasmPaths = 'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/';
@@ -38,7 +39,20 @@ export async function loadModel(modelUrl = '/best_fuseboxV1.onnx') {
       intraOpNumThreads: 1,
     },
   });
-
+ 
+  const inputMeta = session.inputMetadata?.[session.inputNames[0]];
+  if (inputMeta?.dimensions) {
+    const dims = inputMeta.dimensions;         
+    const h = Number(dims[2]);
+    const w = Number(dims[3]);
+    if (h !== w) console.warn(`[YOLO] Kare olmayan input: ${h}×${w}, H kullanılacak`);
+    INPUT_SIZE = h;
+  } else {
+    INPUT_SIZE = 1024;
+    console.warn('[YOLO] inputMetadata okunamadı, INPUT_SIZE=1024 varsayıldı');
+  }
+  console.log('[YOLO] INPUT_SIZE modelden okundu:', INPUT_SIZE);
+ 
   return session;
 }
 

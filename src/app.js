@@ -1,7 +1,7 @@
-import { startCamera }            from './camera.js';
-import { loadModel, runInference, postprocess } from './yolo.js';
-import { syncCanvasSize, clearCanvas, drawRoi, drawDetections, getRoi } from './overlay.js';
-import { loadValidCombinations, validateCombination, sortDetections } from './combination.js';
+import { startCamera }                          from './camera.js';
+import { loadModel, runInference, postprocess, preprocessCanvas } from './yolo.js';
+import { syncCanvasSize, clearCanvas, drawRoi, drawDetections, cropRoi } from './overlay.js';
+import { loadValidCombinations, validateCombination, sortDetections }    from './combination.js';
 
 const CACHE_NAME = 'fusebox-v3';
 
@@ -80,72 +80,9 @@ function stopPreviewLoop() {
   }
 }
 
-// ROI crop —parametre srcCanvas → src, videpWidth → videoWidth
-function cropRoi(src) {
-  const isVideo = src instanceof HTMLVideoElement;
-  const srcW    = isVideo ? src.videoWidth  : src.width;
-  const srcH    = isVideo ? src.videoHeight : src.height;
+//croproi
 
-  const roi = {
-    x: Math.round(srcW * 0.1),
-    y: Math.round(srcH * 0.2),
-    w: Math.round(srcW * 0.8),
-    h: Math.round(srcH * 0.6),
-  };
-
-  let srcCanvas;
-  if (isVideo) {
-    offscreenFull.width  = srcW;
-    offscreenFull.height = srcH;
-    offscreenFull.getContext('2d').drawImage(src, 0, 0);
-    srcCanvas = offscreenFull;
-  } else {
-    srcCanvas = src;
-  }
-
-  // sadece roi alanini modele gonder
-  offscreenCrop.width  = roi.w;
-  offscreenCrop.height = roi.h;
-  offscreenCrop.getContext('2d').drawImage(
-    srcCanvas, roi.x, roi.y, roi.w, roi.h, 0, 0, roi.w, roi.h
-  );
-
-  return { cropped: offscreenCrop, roi };
-}
-
-// Preprocess — offscreen → offscreenModel
-function preprocessCanvas(srcCanvas) {
-  const INPUT_SIZE = 640;
-
-  offscreenModel.width  = INPUT_SIZE;
-  offscreenModel.height = INPUT_SIZE;
-  const ctx = offscreenModel.getContext('2d');
-
-  const vw = srcCanvas.width;
-  const vh = srcCanvas.height;
-  const scale = Math.min(INPUT_SIZE / vw, INPUT_SIZE / vh);
-  const dw = Math.round(vw * scale);
-  const dh = Math.round(vh * scale);
-  const dx = (INPUT_SIZE - dw) / 2;
-  const dy = (INPUT_SIZE - dh) / 2;
-
-  ctx.fillStyle = '#808080';
-  ctx.fillRect(0, 0, INPUT_SIZE, INPUT_SIZE);
-  ctx.drawImage(srcCanvas, dx, dy, dw, dh);
-
-  const { data } = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
-  const nPixels  = INPUT_SIZE * INPUT_SIZE;
-  const float32  = new Float32Array(3 * nPixels);
-
-  for (let i = 0; i < nPixels; i++) {
-    float32[i]             = data[i * 4]     / 255;
-    float32[i + nPixels]   = data[i * 4 + 1] / 255;
-    float32[i + nPixels*2] = data[i * 4 + 2] / 255;
-  }
-
-  const tensor = new window.ort.Tensor('float32', float32, [1, 3, INPUT_SIZE, INPUT_SIZE]);
-  return { tensor, scale, offsetX: dx, offsetY: dy, scaleX: vw/dw, scaleY: vh/dh };
-}
+//preprocessCanvas
 
 // Butonlar
 btnCapture.addEventListener('click', () => {
@@ -274,9 +211,7 @@ async function fetchWithCache(url) {
     return response;
   } catch (e) {
     console.warn('[Cache] Hata:', e.message);
-    return fetch(url, {
-      //headers: { 'ngrok-skip-browser-warning': 'true' }
-    });
+    return fetch(url, {});
   }
 }
 

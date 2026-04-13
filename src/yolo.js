@@ -52,14 +52,16 @@ export async function runInference(tensor) {
   return results[session.outputNames[0]];
 }
 
-export function preprocess(videoEl) {
-  const offscreen = document.createElement('canvas');
-  offscreen.width  = INPUT_SIZE;
-  offscreen.height = INPUT_SIZE;
-  const ctx = offscreen.getContext('2d');
+// Preprocess — offscreen → offscreenModel
+function preprocessCanvas(srcCanvas) {
+  const INPUT_SIZE = 640;
 
-  const vw = videoEl.videoWidth;
-  const vh = videoEl.videoHeight;
+  offscreenModel.width  = INPUT_SIZE;
+  offscreenModel.height = INPUT_SIZE;
+  const ctx = offscreenModel.getContext('2d');
+
+  const vw = srcCanvas.width;
+  const vh = srcCanvas.height;
   const scale = Math.min(INPUT_SIZE / vw, INPUT_SIZE / vh);
   const dw = Math.round(vw * scale);
   const dh = Math.round(vh * scale);
@@ -68,21 +70,20 @@ export function preprocess(videoEl) {
 
   ctx.fillStyle = '#808080';
   ctx.fillRect(0, 0, INPUT_SIZE, INPUT_SIZE);
-  ctx.drawImage(videoEl, dx, dy, dw, dh);
+  ctx.drawImage(srcCanvas, dx, dy, dw, dh);
 
   const { data } = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
   const nPixels  = INPUT_SIZE * INPUT_SIZE;
   const float32  = new Float32Array(3 * nPixels);
 
   for (let i = 0; i < nPixels; i++) {
-    float32[i]               = data[i * 4]     / 255;
-    float32[i + nPixels]     = data[i * 4 + 1] / 255;
-    float32[i + nPixels * 2] = data[i * 4 + 2] / 255;
+    float32[i]             = data[i * 4]     / 255;
+    float32[i + nPixels]   = data[i * 4 + 1] / 255;
+    float32[i + nPixels*2] = data[i * 4 + 2] / 255;
   }
 
-  const ort = window.ort;
-  const tensor = new ort.Tensor('float32', float32, [1, 3, INPUT_SIZE, INPUT_SIZE]);
-  return { tensor, scaleX: vw / dw, scaleY: vh / dh, offsetX: dx, offsetY: dy, scale };
+  const tensor = new window.ort.Tensor('float32', float32, [1, 3, INPUT_SIZE, INPUT_SIZE]);
+  return { tensor, scale, offsetX: dx, offsetY: dy, scaleX: vw/dw, scaleY: vh/dh };
 }
 
 export function postprocess(outputTensor, srcWidth, srcHeight, meta) {

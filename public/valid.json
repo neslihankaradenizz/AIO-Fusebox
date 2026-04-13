@@ -15,25 +15,25 @@
       "id": "fusebox_v3",
       "total_positions": 18,
       "expected": [
-        {"position": 1,  "classId": 3, "label": "25_amp",  "block": 1, "column": "left",   "col_pos": 1},
-        {"position": 2,  "classId": 6, "label": "5_amp",  "block": 1, "column": "left",   "col_pos": 1},
-        {"position": 3,  "classId": 8, "label": "empty",  "block": 1, "column": "left",   "col_pos": 1},
-        {"position": 4,  "classId": 6, "label": "5_amp",  "block": 1, "column": "left",   "col_pos": 1},
+        {"position": 1,  "classId": 8, "label": "empty",  "block": 1, "column": "left",   "col_pos": 1},
+        {"position": 2,  "classId": 2, "label": "20_amp",  "block": 1, "column": "left",   "col_pos": 1},
+        {"position": 3,  "classId": 6, "label": "5_amp",  "block": 1, "column": "left",   "col_pos": 1},
+        {"position": 4,  "classId": 8, "label": "empty",  "block": 1, "column": "left",   "col_pos": 1},
         {"position": 5,  "classId": 7, "label": "7.5_amp",  "block": 1, "column": "left",   "col_pos": 1},
         {"position": 6,  "classId": 7, "label": "7.5_amp",  "block": 1, "column": "left",   "col_pos": 1},
         {"position": 7,  "classId": 0, "label": "10_amp",  "block": 1, "column": "left",   "col_pos": 1},
-        {"position": 8,  "classId": 5, "label": "30_amp",  "block": 1, "column": "left",   "col_pos": 1},
+        {"position": 8,  "classId": 3, "label": "25_amp",  "block": 1, "column": "left",   "col_pos": 1},
         {"position": 9,  "classId": 1, "label": "15_amp",  "block": 1, "column": "left",   "col_pos": 1},
 
-        {"position": 10,  "classId": 8, "label": "empty",  "block": 1, "column": "right",   "col_pos": 2},
-        {"position": 11,  "classId": 4, "label": "15_amp",  "block": 1, "column": "right",   "col_pos": 2},
+        {"position": 10,  "classId": 1, "label": "15_amp",  "block": 1, "column": "right",   "col_pos": 2},
+        {"position": 11,  "classId": 6, "label": "5_amp",  "block": 1, "column": "right",   "col_pos": 2},
         {"position": 12,  "classId": 2, "label": "20_amp",  "block": 1, "column": "right",   "col_pos": 2},
-        {"position": 13,  "classId": 2, "label": "20_amp",  "block": 1, "column": "right",   "col_pos": 2},
+        {"position": 13,  "classId": 8, "label": "empty",  "block": 1, "column": "right",   "col_pos": 2},
         {"position": 14,  "classId": 3, "label": "25_amp",  "block": 1, "column": "right",   "col_pos": 2},
-        {"position": 15,  "classId": 8, "label": "empty",  "block": 1, "column": "right",   "col_pos": 2},
-        {"position": 16,  "classId": 3, "label": "25_amp",  "block": 1, "column": "right",   "col_pos": 2},
-        {"position": 17,  "classId": 8, "label": "empty",  "block": 1, "column": "right",   "col_pos": 2},
-        {"position": 18,  "classId": 5, "label": "30_amp",  "block": 1, "column": "right",   "col_pos": 2}
+        {"position": 15,  "classId": 5, "label": "30_amp",  "block": 1, "column": "right",   "col_pos": 2},
+        {"position": 16,  "classId": 8, "label": "empty",  "block": 1, "column": "right",   "col_pos": 2},
+        {"position": 17,  "classId": 5, "label": "30_amp",  "block": 1, "column": "right",   "col_pos": 2},
+        {"position": 18,  "classId": 8, "label": "empty",  "block": 1, "column": "right",   "col_pos": 2}
       ]
     }
   ]

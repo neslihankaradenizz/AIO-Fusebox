@@ -130,6 +130,6 @@ export function validateCombination(detectedClassIds, detections = null) {
   return 'nok';
 }
 
-export function getCombinations() {
-  return validCombinations;
-}
+//export function getCombinations() {
+  //return validCombinations;
+//}

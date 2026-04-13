@@ -16,15 +16,6 @@ const CLASS_STYLES = {
 
 const DEFAULT_STYLE = { color: '#f59e0b', label: '?' };
 
-export function getRoi(canvas) {
-  return {
-    x: Math.round(canvas.width  * ROI_RATIO.x),
-    y: Math.round(canvas.height * ROI_RATIO.y),
-    w: Math.round(canvas.width  * ROI_RATIO.w),
-    h: Math.round(canvas.height * ROI_RATIO.h),
-  };
-}
-
 export function syncCanvasSize(canvas, source) {
   canvas.width  = source.clientWidth  || source.offsetWidth;
   canvas.height = source.clientHeight || source.offsetHeight;
@@ -63,6 +54,39 @@ export function drawRoi(canvas, hasDetections) {
     ctx.lineTo(cx, cy + dy * CORNER_LEN);
     ctx.stroke();
   }
+}
+
+// ROI crop —parametre srcCanvas → src, videpWidth → videoWidth
+function cropRoi(src) {
+  const isVideo = src instanceof HTMLVideoElement;
+  const srcW    = isVideo ? src.videoWidth  : src.width;
+  const srcH    = isVideo ? src.videoHeight : src.height;
+
+  const roi = {
+    x: Math.round(srcW * 0.1),
+    y: Math.round(srcH * 0.2),
+    w: Math.round(srcW * 0.8),
+    h: Math.round(srcH * 0.6),
+  };
+
+  let srcCanvas;
+  if (isVideo) {
+    offscreenFull.width  = srcW;
+    offscreenFull.height = srcH;
+    offscreenFull.getContext('2d').drawImage(src, 0, 0);
+    srcCanvas = offscreenFull;
+  } else {
+    srcCanvas = src;
+  }
+
+  // sadece roi alanini modele gonder
+  offscreenCrop.width  = roi.w;
+  offscreenCrop.height = roi.h;
+  offscreenCrop.getContext('2d').drawImage(
+    srcCanvas, roi.x, roi.y, roi.w, roi.h, 0, 0, roi.w, roi.h
+  );
+
+  return { cropped: offscreenCrop, roi };
 }
 
 export function drawDetections(canvas, source, detections, roiOffset = { x: 0, y: 0 }) {

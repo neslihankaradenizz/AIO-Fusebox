@@ -36,11 +36,3 @@ export async function startCamera(videoEl, opts = {}) {
   await videoEl.play();
   return stream;
 }
-
-/**
- * Stops all tracks of the given stream.
- * @param {MediaStream} stream
- */
-export function stopCamera(stream) {
-  stream?.getTracks().forEach(t => t.stop());
-}

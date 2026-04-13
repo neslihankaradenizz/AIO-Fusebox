@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/AIO-Fusebox/sw.js', { scope: '/AIO-Fusebox/' })})}

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>AIO-FUSEBOX VISION</title>
+
+    <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+ 
+    :root {
+      --header-h: 52px;
+      --bottom-h: 210px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-top: env(safe-area-inset-top, 0px);
+    }
+ 
+    /* küçük telefon (< 380px) */
+    @media (max-height: 650px) {
+      :root { --bottom-h: 175px; }
+    }
+    /* büyük telefon / tablet (> 850px) */
+    @media (min-height: 850px) {
+      :root { --bottom-h: 230px; }
+    }
+ 
+    html, body {
+      height: 100%;
+      height: 100dvh;
+    }
+ 
+    body {
+      background: #0d0d0f;
+      color: #f0f0f0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+ 
+    /* ── HEADER ─────────────────────────────── */
+    #header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 18px;
+      padding-top: var(--safe-top);
+      background: rgba(255,255,255,0.04);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: calc(var(--header-h) + var(--safe-top));
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+ 
+    #header h1 {
+      font-size: clamp(0.8rem, 3.5vw, 1rem);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+ 
+    #status-text {
+      margin-left: auto;
+      font-size: clamp(0.7rem, 2.8vw, 0.82rem);
+      color: #64748b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 55%;
+      text-align: right;
+    }
+ 
+    /* ── VIEWPORT ────────────────────────────── */
+    #viewport {
+      position: fixed;
+      top: calc(var(--header-h) + var(--safe-top));
+      left: 0;
+      right: 0;
+      bottom: calc(var(--bottom-h) + var(--safe-bottom));
+      background: #000;
+      overflow: hidden;
+    }
+ 
+    #video, #snapshot {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    #snapshot { display: none; }
+ 
+    #canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+ 
+    /* ── LOADING OVERLAY ─────────────────────── */
+    #loading-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(13,13,15,0.88);
+      backdrop-filter: blur(8px);
+      z-index: 20;
+      gap: 16px;
+      transition: opacity 0.4s;
+    }
+    #loading-overlay.hidden { opacity: 0; pointer-events: none; }
+ 
+    .spinner {
+      width: clamp(36px, 10vw, 52px);
+      height: clamp(36px, 10vw, 52px);
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+ 
+    #loading-message {
+      font-size: clamp(0.8rem, 3.5vw, 0.95rem);
+      color: #94a3b8;
+      text-align: center;
+      padding: 0 24px;
+    }
+ 
+    /* ── BOTTOM BAR ──────────────────────────── */
+    #bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: calc(var(--bottom-h) + var(--safe-bottom));
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      padding-bottom: calc(10px + var(--safe-bottom));
+      gap: clamp(5px, 1.5vh, 10px);
+      background: rgba(0,0,0,0.85);
+      border-top: 1px solid rgba(255,255,255,0.07);
+      backdrop-filter: blur(10px);
+      transition: background 0.25s, border-top-color 0.25s;
+      z-index: 100;
+    }
+ 
+    #bottom-bar.ok  { background: rgba(22,163,74,0.22);  border-top-color: rgba(34,197,94,0.35); }
+    #bottom-bar.nok { background: rgba(185,28,28,0.22);  border-top-color: rgba(239,68,68,0.35); }
+ 
+    #result-label {
+      font-size: clamp(1.6rem, 8vw, 2.8rem);
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      line-height: 1;
+      color: #64748b;
+      text-shadow: 0 0 30px currentColor;
+      min-height: 1.1em;
+      transition: color 0.25s;
+    }
+    #bottom-bar.ok  #result-label { color: #4ade80; }
+    #bottom-bar.nok #result-label { color: #f87171; }
+ 
+    #detected-ids {
+      font-family: monospace;   
+      white-space: pre;   
+      font-size: clamp(0.68rem, 2.8vw, 0.78rem);
+      color: #94a3b8;
+      min-height: 1em;
+      text-align: center;
+      padding: 0 8px;
+    }
+ 
+    /* ── BUTTONS ─────────────────────────────── */
+    .btn {
+      width: 100%;
+      padding: clamp(10px, 2.5vw, 14px);
+      border: none;
+      border-radius: 14px;
+      font-size: clamp(0.85rem, 3.8vw, 1rem);
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.03em;
+      transition: opacity 0.15s, transform 0.1s;
+      touch-action: manipulation;
+    }
+    .btn:active { opacity: 0.72; transform: scale(0.97); }
+    .btn-primary   { background: #6366f1; color: #fff; }
+    .btn-success   { background: #22c55e; color: #fff; }
+    .btn-secondary { background: rgba(255,255,255,0.12); color: #fff; }
+    .btn:disabled  { opacity: 0.3; cursor: not-allowed; }
+ 
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+ 
+    .hidden { display: none !important; }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.min.js"
+  onerror="document.getElementById('loading-message').textContent='ORT yüklenemedi!'">
+</script>
+  <script type="module" crossorigin src="/AIO-Fusebox/assets/index-EM6V2YG4.js"></script>
+<link rel="manifest" href="/AIO-Fusebox/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/AIO-Fusebox/registerSW.js"></script></head>
+
+<body>
+  <div id="header">
+    <h1>AIO-FUSEBOX VISION</h1>
+    <span id="status-text">Yükleniyor…</span>
+  </div>
+
+  <div id="viewport">
+    <video id="video" autoplay playsinline muted></video>
+    <img id="snapshot" />
+    <canvas id="canvas"></canvas>
+    <div id="loading-overlay">
+      <div class="spinner"></div>
+      <span id="loading-message">Model yükleniyor…</span>
+    </div>
+  </div>
+
+  <div id="bottom-bar">
+    <div id="result-label"></div>
+    <div id="detected-ids"></div>
+    <button class="btn btn-primary" id="btn-capture">📷 Fotoğraf Çek</button>
+    <div class="btn-row">
+      <button class="btn btn-success hidden" id="btn-match">🔍 Eşleştir</button>
+      <button class="btn btn-secondary hidden" id="btn-retake">🔄 Tekrar</button>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -1,20 +1,4 @@
-/**
- * combination.js
- * valid.json'u yükler ve tespit edilen detections listesini
- * beklenen 78 pozisyonlu dizilimle karşılaştırarak OK / NOK döner.
- *
- * Sıralama mantığı:
- *   Her blok: left sütun (10) → middle sütun (6) → right sütun (10)
- *   Sütun içinde: yukarıdan aşağıya (Y koordinatına göre)
- *   Blok sırası: soldan sağa (X koordinatına göre)
- */
-
 let validCombinations = [];
-
-/**
- * valid.json dosyasını yükler.
- * @param {string} url
- */
 
 export async function loadValidCombinations(url = '/valid.json') {
   const response = await fetch(url);
@@ -22,114 +6,108 @@ export async function loadValidCombinations(url = '/valid.json') {
   const data = await response.json();
   validCombinations = data.combinations;
 }
-/**
- * Detections listesini blok/sütun/pozisyona göre sıralar.
- *
- * Sıralama:
- *  1. Blok (X'e göre — soldan sağa, 3 blok)
- *  2. Sütun içi sıra (left → right — X'e göre)
- *  3. Pozisyon (Y'ye göre — yukarıdan aşağıya)
- *
- * @param {Array} detections  [{classId, x, y, width, height, confidence}]
- * @returns {Array} sıralanmış detections
- */
-export function sortDetections(detections) {
-  if (detections.length === 0) return [];
 
-  // Tüm x merkezlerini hesapla
+export function sortDetections(detections, roiWidth = null) {
+  if (!detections.length) return [];
+
   const withCenter = detections.map(d => ({
     ...d,
     cx: d.x + d.width  / 2,
     cy: d.y + d.height / 2,
   }));
 
-  // X aralığını bul ve 9 sütuna böl (3 blok × 3 sütun)
+  // roiWidth verilmişse sabit orta nokta, verilmemişse dinamik hesapla
   const allCx = withCenter.map(d => d.cx);
-  const minX=Math.min(...allCx);
-  const maxX=Math.max(...allCx);
-  const midX=(minX+maxX)/2;
-  
-  // Her detection'a sütun indeksi ata (0–8)
-  const withCol = withCenter.map(d => ({
+  const splitX = roiWidth
+    ? roiWidth / 2
+    : (Math.min(...allCx) + Math.max(...allCx)) / 2;
+
+  return withCenter.map(d => ({
     ...d,
-    colIndex: d.cx<midX ? 0:1, //0=left 1 right
-  }));
-
-  // Sütun indeksine ve Y'ye göre sırala
-  withCol.sort((a, b) => {
-    if (a.colIndex !== b.colIndex) return a.colIndex - b.colIndex;
-    return a.cy - b.cy;
-  });
-
-  return withCol;
+    colIndex: d.cx < splitX ? 0 : 1,
+  })).sort((a, b) =>
+    a.colIndex !== b.colIndex
+      ? a.colIndex - b.colIndex
+      : a.cy - b.cy
+  );
 }
 
-/**
- * Tespit edilen detections listesini beklenen 78 pozisyonla karsilatirir
- *
- * @param {number[]} detectedClassIds  - classId dizisi 
- * @param {Array}    detections        - ham detections 
- * @returns {'ok' | 'nok' | 'unknown'}
- */
+export function validateCombination(detectedClassIds, detections = [], roiWidth = null) {
+  if (!detectedClassIds?.length) return { state: 'unknown', score: 0, comboId: null };
 
-export function validateCombination(detectedClassIds, detections = null) {
-  if (!detectedClassIds || detectedClassIds.length === 0) return 'unknown';
+  const sorted        = sortDetections(detections, roiWidth);
+  const detectedLeft  = sorted.filter(d => d.colIndex === 0).map(d => d.classId);
+  const detectedRight = sorted.filter(d => d.colIndex === 1).map(d => d.classId);
 
   for (const combo of validCombinations) {
-    const expected = combo.expected;
+    const expectedLeft  = combo.expected
+      .filter(e => e.column === 'left')
+      .sort((a, b) => a.position - b.position);
+    const expectedRight = combo.expected
+      .filter(e => e.column === 'right')
+      .sort((a, b) => a.position - b.position);
 
-    // Detections varsa yeniden sırala, yoksa gelen classId dizisini kullan
-    let orderedIds;
-    if (detections && detections.length > 0) {
-      const sorted = sortDetections(detections);
-      orderedIds = sorted.map(d => d.classId);
-    } else {
-      orderedIds = detectedClassIds;
-    }
-
-    // tespit sayi kontrol
-    if (orderedIds.length !== expected.length) {
+    // Eleman sayısı uyuşmuyorsa bu combo'yu atla
+    if (detectedLeft.length  !== expectedLeft.length ||
+        detectedRight.length !== expectedRight.length) {
       console.warn(
-        `[Combination] "${combo.id}": Beklenen ${expected.length} pozisyon, tespit edilen ${orderedIds.length}`
+        `[Combo] "${combo.id}" atlandı —`,
+        `Sol: beklenen ${expectedLeft.length} tespit ${detectedLeft.length} |`,
+        `Sağ: beklenen ${expectedRight.length} tespit ${detectedRight.length}`
       );
-      return 'nok';
+      continue;
     }
 
-    // Pozisyon karsilastirma
-    let allMatch = true;
+    // Sırayla karşılaştır
     const mismatches = [];
 
-    for (let i = 0; i < expected.length; i++) {
-      const exp = expected[i];
-      const det = orderedIds[i];
-
-      if (exp.classId !== det) {
-        allMatch = false;
+    for (let i = 0; i < expectedLeft.length; i++) {
+      if (detectedLeft[i] !== expectedLeft[i].classId) {
         mismatches.push({
-          position:      exp.position,
-          block:         exp.block,
-          column:        exp.column,
-          col_pos:       exp.col_pos,
-          expectedLabel: exp.label,
-          expectedId:    exp.classId,
-          detectedId:    det,
+          column:        'left',
+          position:      expectedLeft[i].position,
+          expectedLabel: expectedLeft[i].label,
+          expectedId:    expectedLeft[i].classId,
+          detectedId:    detectedLeft[i],
         });
       }
     }
 
-    if (allMatch) {
-      console.log(`[Combination] "${combo.id}" → ✅ OK`);
-      return 'ok';
-    } else {
-      console.warn(`[Combination] "${combo.id}" → ❌ NOK — ${mismatches.length} hatalı pozisyon:`, mismatches);
-      return 'nok';
+    for (let i = 0; i < expectedRight.length; i++) {
+      if (detectedRight[i] !== expectedRight[i].classId) {
+        mismatches.push({
+          column:        'right',
+          position:      expectedRight[i].position,
+          expectedLabel: expectedRight[i].label,
+          expectedId:    expectedRight[i].classId,
+          detectedId:    detectedRight[i],
+        });
+      }
     }
+
+    const total = expectedLeft.length + expectedRight.length;
+    const score = (total - mismatches.length) / total;
+
+    if (mismatches.length === 0) {
+      console.log(`[Combo] ✅ OK — ${combo.id}`);
+      return { state: 'ok', score: 1.0, comboId: combo.id };
+    }
+
+    // Eleman sayısı eşleşti ama içerik uyuşmadı
+    // → Bu combo'ya girdiğimize göre başkasına bakma, NOK dön
+    console.warn(
+      `[Combo] ❌ NOK — ${combo.id} |`,
+      `%${(score * 100).toFixed(0)} eşleşme`,
+      mismatches
+    );
+    return { state: 'nok', score, comboId: combo.id, mismatches };
   }
 
-  console.warn('[Combination] Hiçbir kombinasyonla eşleşmedi → NOK');
-  return 'nok';
+  // Hiçbir combo eleman sayısıyla eşleşmedi
+  console.warn('[Combo] Hiçbir combo eleman sayısıyla eşleşmedi → NOK');
+  return { state: 'nok', score: 0, comboId: null };
 }
 
-//export function getCombinations() {
-  //return validCombinations;
-//}
+export function getCombinations() {
+  return validCombinations;
+}

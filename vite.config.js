@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite'
-import { VitePWA } from 'vite-plugin-pwa'
+import { VitePWA } from 'vite-plugin-pwa' //sw.js dosyasini yazmaya gerek yok  otomatik guncelliyor
 
 export default defineConfig({
   base:'/AIO-Fusebox/',

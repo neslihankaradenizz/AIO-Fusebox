@@ -137,13 +137,13 @@ btnMatch.addEventListener('click', async () => {
     });
 
     const classIds = detections.map(d => d.classId);
-    const state = validateCombination(classIds, detections);
+    const { state, score, comboId } = validateCombination(classIds, detections, roi.w)
 
     bottomBar.className       = state === 'ok' ? 'ok' : state === 'nok' ? 'nok' : '';
     resultLabel.textContent   = state === 'ok' ? 'OK' : state === 'nok' ? 'NOK' : '—';
   
     if (classIds.length > 0) {
-        const sorted = sortDetections(detections); 
+        const sorted = sortDetections(detections, roi.w); 
         const left  = sorted.filter(d => d.colIndex === 0).map(d => d.classId);
         const right = sorted.filter(d => d.colIndex === 1).map(d => d.classId);
         const rows  = Math.max(left.length, right.length);

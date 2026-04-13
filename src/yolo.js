@@ -1,4 +1,3 @@
-const INPUT_SIZE  = 640;
 const CONF_THRESH = 0.5;
 const IOU_THRESH  = 0.45;
 
@@ -56,8 +55,6 @@ const offscreenModelCtx = offscreenModel.getContext('2d', { willReadFrequently: 
 
 // Preprocess — offscreen → offscreenModel
 export function preprocessCanvas(srcCanvas) {
-  const INPUT_SIZE = 640;
-
   offscreenModel.width  = INPUT_SIZE;
   offscreenModel.height = INPUT_SIZE;
   //const ctx = offscreenModel.getContext('2d',{willReadFrequently: true});

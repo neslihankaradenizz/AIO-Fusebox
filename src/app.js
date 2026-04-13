@@ -146,7 +146,31 @@ btnMatch.addEventListener('click', async () => {
         const sorted = sortDetections(detections, roi.w); 
         const left  = sorted.filter(d => d.colIndex === 0).map(d => getClassName(d.classId));
         const right = sorted.filter(d => d.colIndex === 1).map(d => getClassName(d.classId));
+        let html = `
+          <table style="width:100%; border-collapse:collapse; text-align:center;">
+            <thead>
+              <tr>
+                <th style="padding:4px 8px; border-bottom:1px solid #444;">SOL</th>
+                <th style="padding:4px 8px; border-bottom:1px solid #444;">SAĞ</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
 
+        for (let i = 0; i < rows; i++) {
+          const l = left[i]  ?? '—';
+          const r = right[i] ?? '—';
+          html += `
+              <tr>
+                <td style="padding:3px 8px;">${l}</td>
+                <td style="padding:3px 8px;">${r}</td>
+              </tr>
+          `;
+        }
+
+        html += `</tbody></table>`;
+        detectedIdsEl.innerHTML = html;
+        
         const rows  = Math.max(left.length, right.length);
         let matrix  = 'L | R\n';
         matrix += '--------\n';

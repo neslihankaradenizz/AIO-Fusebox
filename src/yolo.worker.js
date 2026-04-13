@@ -1,3 +1,4 @@
+importScripts('https://aoi-fusebox1.neslihan-krdnz53.workers.dev/ort.wasm.min.js');
 import { loadModel, runInference, preprocessCanvas, postprocess } from './yolo.js';
 
 self.onmessage = async (e) => {

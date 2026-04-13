@@ -104,12 +104,13 @@ export function getInputSize() {
 }
 
 async function getOrt() {
-  if (window.ort) return window.ort;
+  const global = typeof self !== 'undefined' ? self : window;
+  if (global.ort) return global.ort;
   return new Promise((resolve, reject) => {
     let count = 0;
     const check = setInterval(() => {
       count++;
-      if (window.ort) { clearInterval(check); resolve(window.ort); }
+      if (global.ort) { clearInterval(check); resolve(global.ort); }
       if (count > 100) { clearInterval(check); reject(new Error('ORT yüklenemedi.')); }
     }, 50);
   });
@@ -207,7 +208,8 @@ export function preprocessCanvas(srcCanvas) {
     float32[i + nPixels * 2] = data[i * 4 + 2] / 255;
   }
 
-  const tensor = new window.ort.Tensor('float32', float32, [1, 3, INPUT_SIZE, INPUT_SIZE]);
+  const global = typeof self !== 'undefined' ? self : window;
+  const tensor = new global.ort.Tensor('float32', float32, [1, 3, INPUT_SIZE, INPUT_SIZE]);
   return { tensor, scale, offsetX: dx, offsetY: dy, scaleX: vw / dw, scaleY: vh / dh };
 }
 

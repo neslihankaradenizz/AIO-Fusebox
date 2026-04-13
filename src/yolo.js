@@ -59,7 +59,7 @@ export function preprocessCanvas(srcCanvas) {
 
   offscreenModel.width  = INPUT_SIZE;
   offscreenModel.height = INPUT_SIZE;
-  const ctx = offscreenModel.getContext('2d');
+  const ctx = offscreenModel.getContext('2d',{willReadFrequently: true});
 
   const vw = srcCanvas.width;
   const vh = srcCanvas.height;

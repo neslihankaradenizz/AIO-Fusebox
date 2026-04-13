@@ -34,6 +34,7 @@ export function clearCanvas(canvas) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
+// nesne yok - beyaz nesne var- kirnizi 
 export function drawRoi(canvas, hasDetections) {
   const ctx = canvas.getContext('2d');
   const { x, y, w, h } = getRoi(canvas);

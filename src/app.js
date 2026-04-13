@@ -135,9 +135,7 @@ btnMatch.addEventListener('click', async () => {
 
     bottomBar.className       = state === 'ok' ? 'ok' : state === 'nok' ? 'nok' : '';
     resultLabel.textContent   = state === 'ok' ? 'OK' : state === 'nok' ? 'NOK' : '—';
-    //detectedIdsEl.textContent = classIds.length > 0
-    //  ? `IDs: [${classIds.join(', ')}]`
-    //  : 'Nesne bulunamadı';
+  
     if (classIds.length > 0) {
         const sorted = sortDetections(detections); 
         const left  = sorted.filter(d => d.colIndex === 0).map(d => d.classId);
@@ -192,16 +190,22 @@ async function fetchWithCache(url) {
     const CACHE_KEY = 'best_fuseboxV1.onnx';
     const cached = await cache.match(CACHE_KEY);
     if (cached) {
-      console.log('[Cache] Cache\'den yüklendi');
+      console.log('[Model] Cache\'den yüklendi');
       return cached;
     }
 
-    console.log('[Cache] İndiriliyor...');
+    console.log('[Model] İndiriliyor...');
     const response = await fetch(url);
-    if (response.ok) cache.put(CACHE_KEY, response.clone());
+    console.log('[Model] İndirme tamamlandi — status:', response.status, '| url:', response.url);
+    
+    if (response.ok) {
+      cache.put(CACHE_KEY, response.clone());
+      console.log('[Model] Cache\'e kaydedildi', CACHE_KEY);
+    }
     return response;
   } catch (e) {
-    console.warn('[Cache] Hata:', e.message);
+    console.warn('[Model] Cache Hata:', e.message);
+    console.log('[Model]  Direkt fetch deneniyor:', url);
     return fetch(url, {});
   }
 }

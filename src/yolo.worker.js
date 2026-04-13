@@ -1,11 +1,19 @@
-importScripts('https://aoi-fusebox1.neslihan-krdnz53.workers.dev/ort.wasm.min.js');
+// yolo.worker.js
 import { loadModel, runInference, preprocessCanvas, postprocess } from './yolo.js';
+
+async function loadOrt(ortUrl) {
+  // ORT script'ini fetch et, eval ile çalıştır
+  const res  = await fetch(ortUrl);
+  const code = await res.text();
+  (0, eval)(code); // self.ort'u tanımlar
+}
 
 self.onmessage = async (e) => {
   const { type, payload } = e.data;
 
   if (type === 'load') {
     try {
+      await loadOrt('https://aoi-fusebox1.neslihan-krdnz53.workers.dev/ort.wasm.min.js');
       await loadModel(payload.modelBuffer);
       self.postMessage({ type: 'loaded' });
     } catch (err) {
@@ -15,10 +23,9 @@ self.onmessage = async (e) => {
 
   if (type === 'infer') {
     try {
-      // OffscreenCanvas ile bitmap'ten canvas oluştur
       const offscreen = new OffscreenCanvas(payload.width, payload.height);
       offscreen.getContext('2d').drawImage(payload.bitmap, 0, 0);
-      payload.bitmap.close(); // belleği serbest bırak
+      payload.bitmap.close();
 
       const meta         = preprocessCanvas(offscreen);
       const outputTensor = await runInference(meta.tensor);

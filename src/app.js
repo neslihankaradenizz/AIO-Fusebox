@@ -24,7 +24,7 @@ let previewRunning = false;
 // FPS ADAPTASYONU 
 const isLowEnd = (navigator.hardwareConcurrency ?? 4) <= 4 ||
                  (navigator.deviceMemory        ?? 4) <= 2;
-const INFERENCE_INTERVAL = isLowEnd ? 1000 / 2 : 1000 / 4;
+//const INFERENCE_INTERVAL = isLowEnd ? 1000 / 2 : 1000 / 4;
 console.log(`[Perf] ${isLowEnd ? 'Düşük uçlu' : 'Yüksek uçlu'} cihaz — ${isLowEnd ? 4 : 8} FPS`);
 
 function onResize() {
@@ -62,7 +62,7 @@ async function startInferenceLoop() {
     } catch {
       lastHadDetections = false;
     }
-    loopTimer = setTimeout(inferLoop, INFERENCE_INTERVAL);
+    loopTimer = setTimeout(inferLoop, 0);
   }
   loopTimer = setTimeout(inferLoop, 0);
 }

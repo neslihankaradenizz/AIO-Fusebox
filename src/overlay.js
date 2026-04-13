@@ -134,7 +134,7 @@ const offscreenFull = document.createElement('canvas');
 const offscreenCrop = document.createElement('canvas');
 
 // ROI crop —parametre srcCanvas → src, videpWidth → videoWidth
-function cropRoi(src) {
+export function cropRoi(src) {
   const isVideo = src instanceof HTMLVideoElement;
   const srcW    = isVideo ? src.videoWidth  : src.width;
   const srcH    = isVideo ? src.videoHeight : src.height;

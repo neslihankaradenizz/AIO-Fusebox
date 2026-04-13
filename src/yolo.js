@@ -43,7 +43,6 @@ export async function loadModel(modelUrl = '/best_fuseboxV1.onnx') {
   return session;
 }
 
-
 export async function runInference(tensor) {
   if (!session) throw new Error('Model not loaded. Call loadModel() first.');
   const inputName = session.inputNames[0];
@@ -53,13 +52,15 @@ export async function runInference(tensor) {
 }
 
 const offscreenModel = document.createElement('canvas');
+const offscreenModelCtx = offscreenModel.getContext('2d', { willReadFrequently: true });
+
 // Preprocess — offscreen → offscreenModel
 export function preprocessCanvas(srcCanvas) {
   const INPUT_SIZE = 640;
 
   offscreenModel.width  = INPUT_SIZE;
   offscreenModel.height = INPUT_SIZE;
-  const ctx = offscreenModel.getContext('2d',{willReadFrequently: true});
+  //const ctx = offscreenModel.getContext('2d',{willReadFrequently: true});
 
   const vw = srcCanvas.width;
   const vh = srcCanvas.height;
@@ -69,11 +70,11 @@ export function preprocessCanvas(srcCanvas) {
   const dx = (INPUT_SIZE - dw) / 2;
   const dy = (INPUT_SIZE - dh) / 2;
 
-  ctx.fillStyle = '#808080';
-  ctx.fillRect(0, 0, INPUT_SIZE, INPUT_SIZE);
-  ctx.drawImage(srcCanvas, dx, dy, dw, dh);
+  offscreenModelCtx.fillStyle = '#808080';
+  offscreenModelCtx.fillRect(0, 0, INPUT_SIZE, INPUT_SIZE);
+  offscreenModelCtx.drawImage(srcCanvas, dx, dy, dw, dh);
 
-  const { data } = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
+  const { data } = offscreenModelCtx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
   const nPixels  = INPUT_SIZE * INPUT_SIZE;
   const float32  = new Float32Array(3 * nPixels);
 

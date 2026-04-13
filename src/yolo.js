@@ -50,12 +50,12 @@ export async function loadModel(modelUrl = '/best_fuseboxV1.onnx') {
       INPUT_SIZE = Number(meta.dimensions[2]);            // [1, 3, H, W] → H
     } else {
       // Fallback: dummy tensor ile shape çıkar
-      INPUT_SIZE = 640;
-      console.warn('[YOLO] inputMetadata yok, INPUT_SIZE=640 varsayıldı');
+      INPUT_SIZE = 1024;
+      console.warn('[YOLO] inputMetadata yok, INPUT_SIZE=1024 varsayıldı');
     }
   } catch {
-    INPUT_SIZE = 640;
-    console.warn('[YOLO] Shape okunamadı, INPUT_SIZE=640 varsayıldı');
+    INPUT_SIZE = 1024;
+    console.warn('[YOLO] Shape okunamadı, INPUT_SIZE=1024 varsayıldı');
   }
 
   console.log('[YOLO] INPUT_SIZE:', INPUT_SIZE);

@@ -2,7 +2,94 @@ const CONF_THRESH = 0.5;
 const IOU_THRESH  = 0.45;
 
 let session   = null;
-let INPUT_SIZE = null;  // loadModel() sonrası modelin input shape'inden okunur
+let INPUT_SIZE = null;  // loadModel() içinde ONNX buffer'dan okunur
+
+// ONNX protobuf'tan input tensor boyutunu çıkar
+// Path: ModelProto[7→graph] → GraphProto[11→input] → ValueInfoProto[2→type]
+//       → TypeProto[1→tensor_type] → TypeProto.Tensor[2→shape]
+//       → TensorShapeProto[1→dim][] → Dimension[1→dim_value]
+function parseInputSizeFromBuffer(buffer) {
+  const u8 = new Uint8Array(buffer);
+  let p = 0;
+
+  const varint = () => {
+    let v = 0, s = 0, b;
+    do { b = u8[p++]; v |= (b & 0x7f) << s; s += 7; } while (b & 0x80);
+    return v;
+  };
+
+  const skipWire = (wt) => {
+    if      (wt === 0) varint();
+    else if (wt === 1) p += 8;
+    else if (wt === 2) p += varint();
+    else if (wt === 5) p += 4;
+  };
+
+  // targetField numaralı LEN field'ı bul, her bulduğunda handler(msgLen) çağır
+  // İlk non-null sonucu döndür
+  const find = (end, targetField, handler) => {
+    while (p < end) {
+      const tag = varint();
+      const fn = tag >>> 3, wt = tag & 7;
+      if (wt === 2) {
+        const mLen = varint();
+        const mEnd = p + mLen;
+        if (fn === targetField) {
+          const r = handler(mLen);
+          if (r != null) return r;
+        }
+        if (p < mEnd) p = mEnd;   // işlenmediyse atla
+      } else {
+        skipWire(wt);
+      }
+    }
+    return null;
+  };
+
+  const total = u8.length;
+
+  return find(total, 7, (graphLen) =>           // ModelProto → graph
+    find(p + graphLen, 11, (viLen) =>           // GraphProto → input (ilk)
+      find(p + viLen, 2, (tpLen) =>             // ValueInfoProto → type
+        find(p + tpLen, 1, (ttLen) =>           // TypeProto → tensor_type
+          find(p + ttLen, 2, (shapeLen) => {    // TypeProto.Tensor → shape
+            // TensorShapeProto → dim[] → dim_value
+            const shapeEnd = p + shapeLen;
+            const dims = [];
+            while (p < shapeEnd) {
+              const tag = varint();
+              const fn = tag >>> 3, wt = tag & 7;
+              if (fn === 1 && wt === 2) {
+                const dLen = varint();
+                const dEnd = p + dLen;
+                let dimVal = null;
+                while (p < dEnd) {
+                  const dtag = varint();
+                  const dfn = dtag >>> 3, dwt = dtag & 7;
+                  if (dfn === 1 && dwt === 0) dimVal = varint();  // dim_value (static)
+                  else skipWire(dwt);                              // dim_param (dynamic) → skip
+                }
+                dims.push(dimVal);
+                p = dEnd;
+              } else {
+                skipWire(wt);
+              }
+            }
+            // dims = [batch, channels, H, W] → H veya W (kare model)
+            const size = dims[2] ?? dims[3];
+            return (size && size > 0) ? size : null;
+          })
+        )
+      )
+    )
+  );
+}
+
+// Diğer modüllerin INPUT_SIZE'ı okuması için
+export function getInputSize() {
+  if (!INPUT_SIZE) throw new Error('getInputSize: loadModel() henüz tamamlanmadı');
+  return INPUT_SIZE;
+}
 
 async function getOrt() {
   if (window.ort) return window.ort;
@@ -30,7 +117,20 @@ export async function loadModel(modelUrl = '/best_fuseboxV1.onnx') {
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.proxy = false;
   ort.env.wasm.wasmPaths = 'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/';
-  
+
+  // 1. Önce ONNX buffer'dan parse et (en güvenilir yol)
+  if (modelUrl instanceof ArrayBuffer) {
+    try {
+      const size = parseInputSizeFromBuffer(modelUrl);
+      if (size) {
+        INPUT_SIZE = size;
+        console.log('[YOLO] INPUT_SIZE ONNX buffer\'dan okundu:', INPUT_SIZE);
+      }
+    } catch (e) {
+      console.warn('[YOLO] Buffer parse hatası:', e.message);
+    }
+  }
+
   session = await ort.InferenceSession.create(modelUrl, {
     executionProviders: ['wasm'],
     sessionOptions: {
@@ -40,22 +140,22 @@ export async function loadModel(modelUrl = '/best_fuseboxV1.onnx') {
     },
   });
 
-  // Input shape'i modelden oku — birden fazla ORT API versiyonunu destekler
-  try {
-    const inputName = session.inputNames[0];
-    const meta = session.inputMetadata?.[inputName]      // ORT ≥1.14
-               ?? session.inputInfo?.[inputName];        // eski API
+  // 2. Buffer parse başarısız olduysa inputMetadata dene (ORT ≥1.14)
+  if (!INPUT_SIZE) {
+    try {
+      const inputName = session.inputNames[0];
+      const meta = session.inputMetadata?.[inputName] ?? session.inputInfo?.[inputName];
+      if (meta?.dimensions) {
+        INPUT_SIZE = Number(meta.dimensions[2]);
+        console.log('[YOLO] INPUT_SIZE inputMetadata\'dan okundu:', INPUT_SIZE);
+      }
+    } catch { /* sessizce geç */ }
+  }
 
-    if (meta?.dimensions) {
-      INPUT_SIZE = Number(meta.dimensions[2]);            // [1, 3, H, W] → H
-    } else {
-      // Fallback: dummy tensor ile shape çıkar
-      INPUT_SIZE = 1024;
-      console.warn('[YOLO] inputMetadata yok, INPUT_SIZE=1024 varsayıldı');
-    }
-  } catch {
+  // 3. Her ikisi de başarısız → fallback
+  if (!INPUT_SIZE) {
     INPUT_SIZE = 1024;
-    console.warn('[YOLO] Shape okunamadı, INPUT_SIZE=1024 varsayıldı');
+    console.warn('[YOLO] INPUT_SIZE okunamadı, fallback:', INPUT_SIZE);
   }
 
   console.log('[YOLO] INPUT_SIZE:', INPUT_SIZE);

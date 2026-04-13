@@ -56,39 +56,6 @@ export function drawRoi(canvas, hasDetections) {
   }
 }
 
-// ROI crop —parametre srcCanvas → src, videpWidth → videoWidth
-function cropRoi(src) {
-  const isVideo = src instanceof HTMLVideoElement;
-  const srcW    = isVideo ? src.videoWidth  : src.width;
-  const srcH    = isVideo ? src.videoHeight : src.height;
-
-  const roi = {
-    x: Math.round(srcW * 0.1),
-    y: Math.round(srcH * 0.2),
-    w: Math.round(srcW * 0.8),
-    h: Math.round(srcH * 0.6),
-  };
-
-  let srcCanvas;
-  if (isVideo) {
-    offscreenFull.width  = srcW;
-    offscreenFull.height = srcH;
-    offscreenFull.getContext('2d').drawImage(src, 0, 0);
-    srcCanvas = offscreenFull;
-  } else {
-    srcCanvas = src;
-  }
-
-  // sadece roi alanini modele gonder
-  offscreenCrop.width  = roi.w;
-  offscreenCrop.height = roi.h;
-  offscreenCrop.getContext('2d').drawImage(
-    srcCanvas, roi.x, roi.y, roi.w, roi.h, 0, 0, roi.w, roi.h
-  );
-
-  return { cropped: offscreenCrop, roi };
-}
-
 export function drawDetections(canvas, source, detections, roiOffset = { x: 0, y: 0 }) {
   const ctx = canvas.getContext('2d');
 
@@ -161,4 +128,40 @@ function drawLegend(canvas, ctx) {
     ctx.fillStyle = '#ffffff';
     ctx.fillText(style.label, ex + boxSize + 4, ey + boxSize - 1);
   });
+}
+
+const offscreenFull = document.createElement('canvas');
+const offscreenCrop = document.createElement('canvas');
+
+// ROI crop —parametre srcCanvas → src, videpWidth → videoWidth
+function cropRoi(src) {
+  const isVideo = src instanceof HTMLVideoElement;
+  const srcW    = isVideo ? src.videoWidth  : src.width;
+  const srcH    = isVideo ? src.videoHeight : src.height;
+
+  const roi = {
+    x: Math.round(srcW * ROI_RATIO.x),
+    y: Math.round(srcH * ROI_RATIO.y),
+    w: Math.round(srcW * ROI_RATIO.w),
+    h: Math.round(srcH * ROI_RATIO.h),
+  };
+
+  let srcCanvas;
+  if (isVideo) {
+    offscreenFull.width  = srcW;
+    offscreenFull.height = srcH;
+    offscreenFull.getContext('2d').drawImage(src, 0, 0);
+    srcCanvas = offscreenFull;
+  } else {
+    srcCanvas = src;
+  }
+
+  // sadece roi alanini modele gonder
+  offscreenCrop.width  = roi.w;
+  offscreenCrop.height = roi.h;
+  offscreenCrop.getContext('2d').drawImage(
+    srcCanvas, roi.x, roi.y, roi.w, roi.h, 0, 0, roi.w, roi.h
+  );
+
+  return { cropped: offscreenCrop, roi };
 }

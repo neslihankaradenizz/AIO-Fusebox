@@ -52,6 +52,7 @@ export async function runInference(tensor) {
   return results[session.outputNames[0]];
 }
 
+const offscreenModel = document.createElement('canvas');
 // Preprocess — offscreen → offscreenModel
 function preprocessCanvas(srcCanvas) {
   const INPUT_SIZE = 640;

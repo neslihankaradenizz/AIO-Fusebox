@@ -21,11 +21,6 @@ const btnRetake      = document.getElementById('btn-retake');
 let capturedCanvas = null;
 let previewRunning = false;
 
-// canvas olusturma
-const offscreenFull  = document.createElement('canvas');
-const offscreenCrop  = document.createElement('canvas');
-const offscreenModel = document.createElement('canvas');
-
 // FPS ADAPTASYONU 
 const isLowEnd = (navigator.hardwareConcurrency ?? 4) <= 4 ||
                  (navigator.deviceMemory        ?? 4) <= 2;
@@ -79,10 +74,6 @@ function stopPreviewLoop() {
     loopTimer = null;
   }
 }
-
-//croproi
-
-//preprocessCanvas
 
 // Butonlar
 btnCapture.addEventListener('click', () => {
@@ -241,5 +232,4 @@ async function init() {
     console.error(err);
   }
 }
-
 init();

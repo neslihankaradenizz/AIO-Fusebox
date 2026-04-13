@@ -9,36 +9,36 @@ let INPUT_SIZE = null;  // loadModel() içinde ONNX buffer'dan okunur
 //       → TypeProto[1→tensor_type] → TypeProto.Tensor[2→shape]
 //       → TensorShapeProto[1→dim][] → Dimension[1→dim_value]
 function parseInputSizeFromBuffer(buffer) {
-  const u8 = new Uint8Array(buffer);
-  let p = 0;
+  const u8  = new Uint8Array(buffer);
+  const cur = { pos: 0 };  // object property — minifier'dan etkilenmez
 
   const varint = () => {
     let v = 0, s = 0, b;
-    do { b = u8[p++]; v |= (b & 0x7f) << s; s += 7; } while (b & 0x80);
+    do { b = u8[cur.pos++]; v |= (b & 0x7f) << s; s += 7; } while (b & 0x80);
     return v;
   };
 
   const skipWire = (wt) => {
     if      (wt === 0) varint();
-    else if (wt === 1) p += 8;
-    else if (wt === 2) p += varint();
-    else if (wt === 5) p += 4;
+    else if (wt === 1) cur.pos += 8;
+    else if (wt === 2) cur.pos += varint();
+    else if (wt === 5) cur.pos += 4;
   };
 
   // targetField numaralı LEN field'ı bul, her bulduğunda handler(msgLen) çağır
   // İlk non-null sonucu döndür
   const find = (end, targetField, handler) => {
-    while (p < end) {
+    while (cur.pos < end) {
       const tag = varint();
       const fn = tag >>> 3, wt = tag & 7;
       if (wt === 2) {
         const mLen = varint();
-        const mEnd = p + mLen;
+        const mEnd = cur.pos + mLen;
         if (fn === targetField) {
           const r = handler(mLen);
           if (r != null) return r;
         }
-        if (p < mEnd) p = mEnd;   // işlenmediyse atla
+        if (cur.pos < mEnd) cur.pos = mEnd;
       } else {
         skipWire(wt);
       }
@@ -48,34 +48,32 @@ function parseInputSizeFromBuffer(buffer) {
 
   const total = u8.length;
 
-  return find(total, 7, (graphLen) =>           // ModelProto → graph
-    find(p + graphLen, 11, (viLen) =>           // GraphProto → input (ilk)
-      find(p + viLen, 2, (tpLen) =>             // ValueInfoProto → type
-        find(p + tpLen, 1, (ttLen) =>           // TypeProto → tensor_type
-          find(p + ttLen, 2, (shapeLen) => {    // TypeProto.Tensor → shape
-            // TensorShapeProto → dim[] → dim_value
-            const shapeEnd = p + shapeLen;
+  return find(total, 7, (graphLen) =>
+    find(cur.pos + graphLen, 11, (viLen) =>
+      find(cur.pos + viLen, 2, (tpLen) =>
+        find(cur.pos + tpLen, 1, (ttLen) =>
+          find(cur.pos + ttLen, 2, (shapeLen) => {
+            const shapeEnd = cur.pos + shapeLen;
             const dims = [];
-            while (p < shapeEnd) {
+            while (cur.pos < shapeEnd) {
               const tag = varint();
               const fn = tag >>> 3, wt = tag & 7;
               if (fn === 1 && wt === 2) {
                 const dLen = varint();
-                const dEnd = p + dLen;
+                const dEnd = cur.pos + dLen;
                 let dimVal = null;
-                while (p < dEnd) {
+                while (cur.pos < dEnd) {
                   const dtag = varint();
                   const dfn = dtag >>> 3, dwt = dtag & 7;
-                  if (dfn === 1 && dwt === 0) dimVal = varint();  // dim_value (static)
-                  else skipWire(dwt);                              // dim_param (dynamic) → skip
+                  if (dfn === 1 && dwt === 0) dimVal = varint(); // dim_value (static)
+                  else skipWire(dwt);                             // dim_param (dynamic) → skip
                 }
                 dims.push(dimVal);
-                p = dEnd;
+                cur.pos = dEnd;
               } else {
                 skipWire(wt);
               }
             }
-            // dims = [batch, channels, H, W] → H veya W (kare model)
             const size = dims[2] ?? dims[3];
             return (size && size > 0) ? size : null;
           })

@@ -3,18 +3,22 @@ const CORNER_LEN = 22;
 const CORNER_W   = 4;
 
 const CLASS_STYLES = {
-  0: { color: '#ef731b', label: '10A'  },  //  turunuc
-  1: { color: '#80acf4', label: '15A'  },  // acik mavi
-  2: { color: '#eab308', label: '20A'  },  // sari
-  3: { color: '#f03eac', label: '25A'  },  // pembe
-  4: { color: '#cd1df4', label: '2A'   },  // mor
-  5: { color: '#030bfa', label: '30A'  },  // lacivert
-  6: { color: '#f80808', label: '5A'   },  // kirmizi
-  7: { color: '#5df184', label: '7.5A' },  // acik yesil
-  8: { color: '#503131', label: 'BOŞ'  },  // kahverengi
+  0: { color: '#ef731b', label: '10_amp'  },  //  turunuc
+  1: { color: '#80acf4', label: '15_amp'  },  // acik mavi
+  2: { color: '#eab308', label: '20_amp'  },  // sari
+  3: { color: '#f03eac', label: '25_amp'  },  // pembe
+  4: { color: '#cd1df4', label: '2_amp'   },  // mor
+  5: { color: '#030bfa', label: '30_amp'  },  // lacivert
+  6: { color: '#f80808', label: '5_amp'   },  // kirmizi
+  7: { color: '#5df184', label: '7.5_amp' },  // acik yesil
+  8: { color: '#503131', label: 'empty'  },  // kahverengi
 };
 
 const DEFAULT_STYLE = { color: '#f59e0b', label: '?' };
+
+export function getClassName(classId) {
+  return CLASS_STYLES[classId]?.label ?? `?${classId}`;
+}
 
 function getRoi(canvas) {
   return {

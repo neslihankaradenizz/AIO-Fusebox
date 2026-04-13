@@ -1,7 +1,7 @@
 import { startCamera }                          from './camera.js';
 import { loadModel, runInference, postprocess, preprocessCanvas } from './yolo.js';
-import { syncCanvasSize, clearCanvas, drawRoi, drawDetections, cropRoi } from './overlay.js';
 import { loadValidCombinations, validateCombination, sortDetections }    from './combination.js';
+import { syncCanvasSize, clearCanvas, drawRoi, drawDetections, cropRoi, getClassName } from './overlay.js';
 
 const CACHE_NAME = 'fusebox-v3';
 
@@ -144,8 +144,9 @@ btnMatch.addEventListener('click', async () => {
   
     if (classIds.length > 0) {
         const sorted = sortDetections(detections, roi.w); 
-        const left  = sorted.filter(d => d.colIndex === 0).map(d => d.classId);
-        const right = sorted.filter(d => d.colIndex === 1).map(d => d.classId);
+        const left  = sorted.filter(d => d.colIndex === 0).map(d => getClassName(d.classId));
+        const right = sorted.filter(d => d.colIndex === 1).map(d => getClassName(d.classId));
+
         const rows  = Math.max(left.length, right.length);
         let matrix  = 'L | R\n';
         matrix += '--------\n';

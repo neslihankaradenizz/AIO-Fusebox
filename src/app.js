@@ -261,7 +261,7 @@ btnRetake.addEventListener('click', () => {
 async function fetchWithCache(url) {
   try {
     const cache = await caches.open(CACHE_NAME);
-    const CACHE_KEY = 'model_v2.onnx';
+    const CACHE_KEY = 'best_fuseboxV1.onnx';
     const cached = await cache.match(CACHE_KEY);
     if (cached) {
       console.log('[Cache] Cache\'den yüklendi');
@@ -293,7 +293,7 @@ async function init() {
     syncCanvasSize(canvas, video);
 
     loadingMsg.textContent = 'Model yükleniyor…';
-    const modelResponse = await fetchWithCache('https://aoi-fusebox1.neslihan-krdnz53.workers.dev/model_v2.onnx');
+    const modelResponse = await fetchWithCache('https://aoi-fusebox1.neslihan-krdnz53.workers.dev/best_fuseboxV1.onnx');
     const modelBuffer = await modelResponse.arrayBuffer();
     await loadModel(modelBuffer);
 

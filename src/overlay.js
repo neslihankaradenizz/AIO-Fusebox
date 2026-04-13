@@ -3,15 +3,15 @@ const CORNER_LEN = 22;
 const CORNER_W   = 4;
 
 const CLASS_STYLES = {
-  0: { color: '#ef4444', label: '2A'  },  // kırmızı
-  1: { color: '#3b82f6', label: '5A'  },  // mavi
-  2: { color: '#eab308', label: '7.5A'  },  // sarı
-  3: { color: '#000000', label: '10A'  },  // siyah
-  4: { color: '#868484', label: '15A'   },  // gri
-  5: { color: '#22c55e', label: '20A'  },  // yeşil
-  6: { color: '#f97316', label: '25A'   },  // turuncu
-  7: { color: '#6b3a3a', label: '30A' },  // kahverengi
-  8: { color: '#b81ede', label: 'BOŞ'  },  // mor
+  0: { color: '#ef731b', label: '10A'  },  //  turunuc
+  1: { color: '#80acf4', label: '15A'  },  // acik mavi
+  2: { color: '#eab308', label: '20A'  },  // sari
+  3: { color: '#f03eac', label: '25A'  },  // pembe
+  4: { color: '#cd1df4', label: '2A'   },  // mor
+  5: { color: '#030bfa', label: '30A'  },  // lacivert
+  6: { color: '#f80808', label: '5A'   },  // kirmizi
+  7: { color: '#5df184', label: '7.5A' },  // acik yesil
+  8: { color: '#503131', label: 'BOŞ'  },  // kahverengi
 };
 
 const DEFAULT_STYLE = { color: '#f59e0b', label: '?' };

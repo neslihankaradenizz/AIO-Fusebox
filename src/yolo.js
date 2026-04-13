@@ -174,7 +174,10 @@ export async function runInference(tensor) {
   return results[session.outputNames[0]];
 }
 
-const offscreenModel    = document.createElement('canvas');
+const offscreenModel = typeof OffscreenCanvas !== 'undefined'
+  ? new OffscreenCanvas(1, 1)
+  : document.createElement('canvas');
+
 const offscreenModelCtx = offscreenModel.getContext('2d', { willReadFrequently: true });
 
 export function preprocessCanvas(srcCanvas) {

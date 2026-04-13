@@ -54,7 +54,7 @@ export async function runInference(tensor) {
 
 const offscreenModel = document.createElement('canvas');
 // Preprocess — offscreen → offscreenModel
-function preprocessCanvas(srcCanvas) {
+export function preprocessCanvas(srcCanvas) {
   const INPUT_SIZE = 640;
 
   offscreenModel.width  = INPUT_SIZE;

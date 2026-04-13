@@ -2,88 +2,102 @@ const CONF_THRESH = 0.5;
 const IOU_THRESH  = 0.45;
 
 let session   = null;
-let INPUT_SIZE = null;  // loadModel() içinde ONNX buffer'dan okunur
+let INPUT_SIZE = null;
 
-// ONNX protobuf'tan input tensor boyutunu çıkar
-// Path: ModelProto[7→graph] → GraphProto[11→input] → ValueInfoProto[2→type]
-//       → TypeProto[1→tensor_type] → TypeProto.Tensor[2→shape]
-//       → TensorShapeProto[1→dim][] → Dimension[1→dim_value]
-function parseInputSizeFromBuffer(buffer) {
-  const u8  = new Uint8Array(buffer);
-  const cur = { pos: 0 };  // object property — minifier'dan etkilenmez
-
-  const varint = () => {
-    let v = 0, s = 0, b;
-    do { b = u8[cur.pos++]; v |= (b & 0x7f) << s; s += 7; } while (b & 0x80);
-    return v;
-  };
-
-  const skipWire = (wt) => {
-    if      (wt === 0) varint();
-    else if (wt === 1) cur.pos += 8;
-    else if (wt === 2) cur.pos += varint();
-    else if (wt === 5) cur.pos += 4;
-  };
-
-  // targetField numaralı LEN field'ı bul, her bulduğunda handler(msgLen) çağır
-  // İlk non-null sonucu döndür
-  const find = (end, targetField, handler) => {
-    while (cur.pos < end) {
-      const tag = varint();
-      const fn = tag >>> 3, wt = tag & 7;
-      if (wt === 2) {
-        const mLen = varint();
-        const mEnd = cur.pos + mLen;
-        if (fn === targetField) {
-          const r = handler(mLen);
-          if (r != null) return r;
-        }
-        if (cur.pos < mEnd) cur.pos = mEnd;
-      } else {
-        skipWire(wt);
-      }
-    }
-    return null;
-  };
-
-  const total = u8.length;
-
-  return find(total, 7, (graphLen) =>
-    find(cur.pos + graphLen, 11, (viLen) =>
-      find(cur.pos + viLen, 2, (tpLen) =>
-        find(cur.pos + tpLen, 1, (ttLen) =>
-          find(cur.pos + ttLen, 2, (shapeLen) => {
-            const shapeEnd = cur.pos + shapeLen;
-            const dims = [];
-            while (cur.pos < shapeEnd) {
-              const tag = varint();
-              const fn = tag >>> 3, wt = tag & 7;
-              if (fn === 1 && wt === 2) {
-                const dLen = varint();
-                const dEnd = cur.pos + dLen;
-                let dimVal = null;
-                while (cur.pos < dEnd) {
-                  const dtag = varint();
-                  const dfn = dtag >>> 3, dwt = dtag & 7;
-                  if (dfn === 1 && dwt === 0) dimVal = varint(); // dim_value (static)
-                  else skipWire(dwt);                             // dim_param (dynamic) → skip
-                }
-                dims.push(dimVal);
-                cur.pos = dEnd;
-              } else {
-                skipWire(wt);
-              }
-            }
-            const size = dims[2] ?? dims[3];
-            return (size && size > 0) ? size : null;
-          })
-        )
-      )
-    )
-  );
+// --- ONNX protobuf parser — closure-free, minifier-safe ---
+function onnxVarint(bytes, idx) {
+  let val = 0, shift = 0, byte;
+  do {
+    byte = bytes[idx[0]++];
+    val |= (byte & 0x7f) << shift;
+    shift += 7;
+  } while (byte & 0x80);
+  return val;
 }
 
-// Diğer modüllerin INPUT_SIZE'ı okuması için
+function onnxSkip(bytes, idx, wireType) {
+  if      (wireType === 0) onnxVarint(bytes, idx);
+  else if (wireType === 1) idx[0] += 8;
+  else if (wireType === 2) idx[0] += onnxVarint(bytes, idx);
+  else if (wireType === 5) idx[0] += 4;
+}
+
+function onnxFindField(bytes, idx, end, targetField) {
+  while (idx[0] < end) {
+    const tag      = onnxVarint(bytes, idx);
+    const fieldNum = tag >>> 3;
+    const wireType = tag & 7;
+    if (wireType === 2) {
+      const msgLen = onnxVarint(bytes, idx);
+      const msgEnd = idx[0] + msgLen;
+      if (fieldNum === targetField) return msgEnd;
+      idx[0] = msgEnd;
+    } else {
+      onnxSkip(bytes, idx, wireType);
+    }
+  }
+  return null;
+}
+
+function parseInputSizeFromBuffer(buffer) {
+  try {
+    const bytes = new Uint8Array(buffer);
+    const idx   = [0]; // tek elemanlı dizi — minifier yeniden adlandıramaz
+
+    const graphEnd = onnxFindField(bytes, idx, bytes.length, 7);  // ModelProto → graph
+    if (graphEnd == null) return null;
+
+    const viEnd = onnxFindField(bytes, idx, graphEnd, 11);         // GraphProto → input
+    if (viEnd == null) return null;
+
+    const tpEnd = onnxFindField(bytes, idx, viEnd, 2);             // ValueInfoProto → type
+    if (tpEnd == null) return null;
+
+    const ttEnd = onnxFindField(bytes, idx, tpEnd, 1);             // TypeProto → tensor_type
+    if (ttEnd == null) return null;
+
+    const shapeEnd = onnxFindField(bytes, idx, ttEnd, 2);          // Tensor → shape
+    if (shapeEnd == null) return null;
+
+    const dims = [];
+    while (idx[0] < shapeEnd) {
+      const tag      = onnxVarint(bytes, idx);
+      const fieldNum = tag >>> 3;
+      const wireType = tag & 7;
+
+      if (fieldNum === 1 && wireType === 2) {
+        const dimLen = onnxVarint(bytes, idx);
+        const dimEnd = idx[0] + dimLen;
+        let dimValue = null;
+
+        while (idx[0] < dimEnd) {
+          const dtag      = onnxVarint(bytes, idx);
+          const dfieldNum = dtag >>> 3;
+          const dwireType = dtag & 7;
+          if (dfieldNum === 1 && dwireType === 0) {
+            dimValue = onnxVarint(bytes, idx); // dim_value (statik)
+          } else {
+            onnxSkip(bytes, idx, dwireType);   // dim_param (dinamik) → atla
+          }
+        }
+        dims.push(dimValue);
+        idx[0] = dimEnd;
+      } else {
+        onnxSkip(bytes, idx, wireType);
+      }
+    }
+
+    // dims = [batch, channels, H, W] → H
+    const size = dims[2] ?? dims[3];
+    return (size && size > 0) ? size : null;
+
+  } catch (err) {
+    console.warn('[YOLO] ONNX parse hatası:', err.message);
+    return null;
+  }
+}
+// ----------------------------------------------------------
+
 export function getInputSize() {
   if (!INPUT_SIZE) throw new Error('getInputSize: loadModel() henüz tamamlanmadı');
   return INPUT_SIZE;
@@ -91,20 +105,12 @@ export function getInputSize() {
 
 async function getOrt() {
   if (window.ort) return window.ort;
-  
   return new Promise((resolve, reject) => {
     let count = 0;
     const check = setInterval(() => {
       count++;
-      console.log('[ORT] Bekleniyor...', count, 'window.ort:', typeof window.ort);
-      if (window.ort) {
-        clearInterval(check);
-        resolve(window.ort);
-      }
-      if (count > 100) { // 5 saniye
-        clearInterval(check);
-        reject(new Error('ORT CDN yüklenemedi. window.ort undefined.'));
-      }
+      if (window.ort) { clearInterval(check); resolve(window.ort); }
+      if (count > 100) { clearInterval(check); reject(new Error('ORT yüklenemedi.')); }
     }, 50);
   });
 }
@@ -116,7 +122,7 @@ export async function loadModel(modelUrl = '/best_fuseboxV1.onnx') {
   ort.env.wasm.proxy = false;
   ort.env.wasm.wasmPaths = 'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/';
 
-  // 1. Önce ONNX buffer'dan parse et (en güvenilir yol)
+  // 1. ONNX buffer'dan parse et
   if (modelUrl instanceof ArrayBuffer) {
     try {
       const size = parseInputSizeFromBuffer(modelUrl);
@@ -124,8 +130,8 @@ export async function loadModel(modelUrl = '/best_fuseboxV1.onnx') {
         INPUT_SIZE = size;
         console.log('[YOLO] INPUT_SIZE ONNX buffer\'dan okundu:', INPUT_SIZE);
       }
-    } catch (e) {
-      console.warn('[YOLO] Buffer parse hatası:', e.message);
+    } catch (err) {
+      console.warn('[YOLO] Buffer parse hatası:', err.message);
     }
   }
 
@@ -138,7 +144,7 @@ export async function loadModel(modelUrl = '/best_fuseboxV1.onnx') {
     },
   });
 
-  // 2. Buffer parse başarısız olduysa inputMetadata dene (ORT ≥1.14)
+  // 2. inputMetadata dene (ORT ≥1.14)
   if (!INPUT_SIZE) {
     try {
       const inputName = session.inputNames[0];
@@ -150,7 +156,7 @@ export async function loadModel(modelUrl = '/best_fuseboxV1.onnx') {
     } catch { /* sessizce geç */ }
   }
 
-  // 3. Her ikisi de başarısız → fallback
+  // 3. Fallback
   if (!INPUT_SIZE) {
     INPUT_SIZE = 1024;
     console.warn('[YOLO] INPUT_SIZE okunamadı, fallback:', INPUT_SIZE);
@@ -168,15 +174,13 @@ export async function runInference(tensor) {
   return results[session.outputNames[0]];
 }
 
-const offscreenModel = document.createElement('canvas');
+const offscreenModel    = document.createElement('canvas');
 const offscreenModelCtx = offscreenModel.getContext('2d', { willReadFrequently: true });
 
-// Preprocess — offscreen → offscreenModel
 export function preprocessCanvas(srcCanvas) {
   if (!INPUT_SIZE) throw new Error('INPUT_SIZE henüz set edilmedi. loadModel() bekleniyor.');
   offscreenModel.width  = INPUT_SIZE;
   offscreenModel.height = INPUT_SIZE;
-  //const ctx = offscreenModel.getContext('2d',{willReadFrequently: true});
 
   const vw = srcCanvas.width;
   const vh = srcCanvas.height;
@@ -195,13 +199,13 @@ export function preprocessCanvas(srcCanvas) {
   const float32  = new Float32Array(3 * nPixels);
 
   for (let i = 0; i < nPixels; i++) {
-    float32[i]             = data[i * 4]     / 255;
-    float32[i + nPixels]   = data[i * 4 + 1] / 255;
-    float32[i + nPixels*2] = data[i * 4 + 2] / 255;
+    float32[i]              = data[i * 4]     / 255;
+    float32[i + nPixels]    = data[i * 4 + 1] / 255;
+    float32[i + nPixels * 2] = data[i * 4 + 2] / 255;
   }
 
   const tensor = new window.ort.Tensor('float32', float32, [1, 3, INPUT_SIZE, INPUT_SIZE]);
-  return { tensor, scale, offsetX: dx, offsetY: dy, scaleX: vw/dw, scaleY: vh/dh };
+  return { tensor, scale, offsetX: dx, offsetY: dy, scaleX: vw / dw, scaleY: vh / dh };
 }
 
 export function postprocess(outputTensor, srcWidth, srcHeight, meta) {
@@ -209,11 +213,8 @@ export function postprocess(outputTensor, srcWidth, srcHeight, meta) {
   const dims = outputTensor.dims;
 
   let rows, cols;
-  if (dims[1] < dims[2]) {
-    rows = dims[1]; cols = dims[2];
-  } else {
-    rows = dims[2]; cols = dims[1];
-  }
+  if (dims[1] < dims[2]) { rows = dims[1]; cols = dims[2]; }
+  else                   { rows = dims[2]; cols = dims[1]; }
 
   const numClasses = rows - 4;
   const detections = [];

@@ -1,6 +1,5 @@
-import { startCamera }                          from './camera.js';
-import { loadModel, runInference, postprocess, preprocessCanvas } from './yolo.js';
-import { loadValidCombinations, validateCombination, sortDetections }    from './combination.js';
+import { startCamera }                                                         from './camera.js';
+import { loadValidCombinations, validateCombination, sortDetections }          from './combination.js';
 import { syncCanvasSize, clearCanvas, drawRoi, drawDetections, cropRoi, getClassName } from './overlay.js';
 
 const CACHE_NAME = 'fusebox-v3';
@@ -20,12 +19,12 @@ const btnRetake      = document.getElementById('btn-retake');
 
 let capturedCanvas = null;
 let previewRunning = false;
+let worker         = null; // ✅ worker global — hem preview hem match kullanır
 
-// FPS ADAPTASYONU 
+// FPS ADAPTASYONU
 const isLowEnd = (navigator.hardwareConcurrency ?? 4) <= 4 ||
                  (navigator.deviceMemory        ?? 4) <= 2;
-//const INFERENCE_INTERVAL = isLowEnd ? 1000 / 2 : 1000 / 4;
-console.log(`[Perf] ${isLowEnd ? 'Düşük uçlu' : 'Yüksek uçlu'} cihaz — ${isLowEnd ? 4 : 8} FPS`);
+console.log(`[Perf] ${isLowEnd ? 'Düşük uçlu' : 'Yüksek uçlu'} cihaz`);
 
 function onResize() {
   const source = video.style.display !== 'none' ? video : snapshot;
@@ -34,40 +33,65 @@ function onResize() {
 window.addEventListener('resize', onResize);
 
 let lastHadDetections = false;
-let loopTimer         = null
+let loopTimer         = null;
+let inferBusy         = false; // ✅ worker meşgulken tekrar gönderme
 
-// UI loop — sadece cizim, 30fps
-async function startUILoop() {
+// --- Worker'a inference gönder, Promise döner ---
+function workerInfer(imageBitmap, width, height) {
+  return new Promise((resolve, reject) => {
+    const onMsg = (e) => {
+      if (e.data.type === 'result') {
+        worker.removeEventListener('message', onMsg);
+        resolve(e.data.detections);
+      } else if (e.data.type === 'error') {
+        worker.removeEventListener('message', onMsg);
+        reject(new Error(e.data.message));
+      }
+    };
+    worker.addEventListener('message', onMsg);
+    worker.postMessage(
+      { type: 'infer', payload: { bitmap: imageBitmap, width, height } },
+      [imageBitmap] // zero-copy transfer
+    );
+  });
+}
+
+// UI loop — sadece çizim, rAF ile 60fps
+function startUILoop() {
   function uiLoop() {
     if (!previewRunning) return;
     clearCanvas(canvas);
     drawRoi(canvas, lastHadDetections);
-    requestAnimationFrame(uiLoop); // setTimeout yerine rAF
+    requestAnimationFrame(uiLoop);
   }
   requestAnimationFrame(uiLoop);
 }
 
-// Inference loop — ayrı dusuk FPS
-async function startInferenceLoop() {
+// Inference loop — worker üzerinden, düşük FPS
+function startInferenceLoop() {
   async function inferLoop() {
     if (!previewRunning) return;
-    try {
-      if (video.readyState >= video.HAVE_ENOUGH_DATA) {
+
+    if (!inferBusy && video.readyState >= video.HAVE_ENOUGH_DATA) {
+      inferBusy = true;
+      try {
         const { cropped } = cropRoi(video);
-        const meta         = preprocessCanvas(cropped);
-        const outputTensor = await runInference(meta.tensor);
-        const detections   = postprocess(outputTensor, cropped.width, cropped.height, meta);
-        lastHadDetections  = detections.length > 0;
+        const bitmap = await createImageBitmap(cropped);
+        const detections = await workerInfer(bitmap, cropped.width, cropped.height);
+        lastHadDetections = detections.length > 0;
+      } catch {
+        lastHadDetections = false;
+      } finally {
+        inferBusy = false;
       }
-    } catch {
-      lastHadDetections = false;
     }
+
     loopTimer = setTimeout(inferLoop, isLowEnd ? 200 : 100);
   }
   loopTimer = setTimeout(inferLoop, 0);
 }
 
-async function startPreviewLoop() {
+function startPreviewLoop() {
   previewRunning = true;
   startUILoop();
   startInferenceLoop();
@@ -81,20 +105,19 @@ function stopPreviewLoop() {
   }
 }
 
-// Butonlar
+// --- CAPTURE ---
 btnCapture.addEventListener('click', () => {
   stopPreviewLoop();
 
-  // Tam frame'e gerek yok — direkt ROI canvas'ı al
+  // ✅ Direkt ROI'yi kes — tam çözünürlüğe gerek yok
   const { cropped, roi } = cropRoi(video);
 
-  // Sadece ROI'yi sakla
   capturedCanvas = document.createElement('canvas');
   capturedCanvas.width  = roi.w;
   capturedCanvas.height = roi.h;
-  capturedCanvas.getContext('2d').drawImage(cropped, 0, 0);
+  capturedCanvas.getContext('2d').drawImage(cropped, 0, 0); // ✅ `captured` değil `capturedCanvas`
 
-  snapshot.src = captured.toDataURL('image/jpeg');
+  snapshot.src           = capturedCanvas.toDataURL('image/jpeg');
   snapshot.style.display = 'block';
   video.style.display    = 'none';
 
@@ -112,85 +135,71 @@ btnCapture.addEventListener('click', () => {
   statusText.textContent    = 'Fotoğraf hazır';
 });
 
+// --- MATCH ---
 btnMatch.addEventListener('click', async () => {
   if (!capturedCanvas) return;
 
-  btnMatch.disabled       = true;
-  btnMatch.textContent    = '⏳ Analiz ediliyor…';
-  statusText.textContent  = 'Analiz ediliyor…';
+  btnMatch.disabled      = true;
+  btnMatch.textContent   = '⏳ Analiz ediliyor…';
+  statusText.textContent = 'Analiz ediliyor…';
 
   try {
     syncCanvasSize(canvas, snapshot);
 
-    //const { cropped, roi } = cropRoi(capturedCanvas);
+    // ✅ capturedCanvas zaten ROI — tekrar cropRoi'ye gerek yok
     const cropped = capturedCanvas;
-    const roi = { x: 0, y: 0, w: capturedCanvas.width, h: capturedCanvas.height };
+    const roi     = { x: 0, y: 0, w: capturedCanvas.width, h: capturedCanvas.height };
 
-    const meta         = preprocessCanvas(cropped);
-    const outputTensor = await runInference(meta.tensor);
-    const detections   = postprocess(outputTensor, cropped.width, cropped.height, meta);
+    // ✅ Worker üzerinden inference — UI donmuyor
+    const bitmap     = await createImageBitmap(cropped);
+    const detections = await workerInfer(bitmap, cropped.width, cropped.height);
 
-    detections.sort((a, b) => (a.x + a.width/2) - (b.x + b.width/2));
+    detections.sort((a, b) => (a.x + a.width / 2) - (b.x + b.width / 2));
 
     const hasDetections = detections.length > 0;
 
     clearCanvas(canvas);
     drawRoi(canvas, hasDetections);
-    drawDetections(canvas, snapshot, detections, {
-      x: roi.x / (capturedCanvas.width  / canvas.width),
-      y: roi.y / (capturedCanvas.height / canvas.height),
-    });
+    drawDetections(canvas, snapshot, detections, { x: 0, y: 0 });
 
     const classIds = detections.map(d => d.classId);
-    const { state, score, comboId } = validateCombination(classIds, detections, roi.w)
+    const { state } = validateCombination(classIds, detections, roi.w);
 
-    bottomBar.className       = state === 'ok' ? 'ok' : state === 'nok' ? 'nok' : '';
-    resultLabel.textContent   = state === 'ok' ? 'OK' : state === 'nok' ? 'NOK' : '—';
-  
+    bottomBar.className     = state === 'ok' ? 'ok' : state === 'nok' ? 'nok' : '';
+    resultLabel.textContent = state === 'ok' ? 'OK' : state === 'nok' ? 'NOK' : '—';
+
     if (classIds.length > 0) {
-        const sorted = sortDetections(detections, roi.w); 
-        const left  = sorted.filter(d => d.colIndex === 0).map(d => getClassName(d.classId));
-        const right = sorted.filter(d => d.colIndex === 1).map(d => getClassName(d.classId));
-        const rows  = Math.max(left.length, right.length);
+      const sorted = sortDetections(detections, roi.w);
+      const left   = sorted.filter(d => d.colIndex === 0).map(d => getClassName(d.classId));
+      const right  = sorted.filter(d => d.colIndex === 1).map(d => getClassName(d.classId));
+      const rows   = Math.max(left.length, right.length);
 
-        let html = `
-          <table style="width:100%; border-collapse:collapse; text-align:center;">
-            <thead>
-              <tr>
-                <th style="padding:4px 8px; border-bottom:1px solid #444;">SOL</th>
-                <th style="padding:4px 8px; border-bottom:1px solid #444;">SAĞ</th>
-              </tr>
-            </thead>
-            <tbody>
+      // ✅ Sadece innerHTML kullan — sonra textContent ile ezme
+      let html = `
+        <table style="width:100%; border-collapse:collapse; text-align:center;">
+          <thead>
+            <tr>
+              <th style="padding:4px 8px; border-bottom:1px solid #444;">SOL</th>
+              <th style="padding:4px 8px; border-bottom:1px solid #444;">SAĞ</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      for (let i = 0; i < rows; i++) {
+        html += `
+          <tr>
+            <td style="padding:3px 8px;">${left[i]  ?? '—'}</td>
+            <td style="padding:3px 8px;">${right[i] ?? '—'}</td>
+          </tr>
         `;
-
-        for (let i = 0; i < rows; i++) {
-          const l = left[i]  ?? '—';
-          const r = right[i] ?? '—';
-          html += `
-              <tr>
-                <td style="padding:3px 8px;">${l}</td>
-                <td style="padding:3px 8px;">${r}</td>
-              </tr>
-          `;
-        }
-
-        html += `</tbody></table>`;
-        detectedIdsEl.innerHTML = html;
-
-        
-        let matrix  = 'L | R\n';
-        matrix += '--------\n';
-        for (let i = 0; i < rows; i++) {
-          const l = left[i]  !== undefined ? String(left[i]).padStart(2)  : ' —';
-          const r = right[i] !== undefined ? String(right[i]).padStart(2) : ' —';
-          matrix += `${l}  |  ${r}\n`;
-        }
-        detectedIdsEl.textContent = matrix;
-      } else {
-        detectedIdsEl.textContent = 'Nesne bulunamadı';
       }
-    statusText.textContent    = state === 'ok' ? 'Eşleşme bulundu ✓' : 'Eşleşme yok';
+      html += `</tbody></table>`;
+      detectedIdsEl.innerHTML = html; // ✅ textContent ile ezilmiyor
+    } else {
+      detectedIdsEl.textContent = 'Nesne bulunamadı';
+    }
+
+    statusText.textContent = state === 'ok' ? 'Eşleşme bulundu ✓' : 'Eşleşme yok';
 
   } catch (err) {
     statusText.textContent = 'Hata: ' + err.message;
@@ -201,6 +210,7 @@ btnMatch.addEventListener('click', async () => {
   btnMatch.textContent = '🔍 Görüntü Eşleştir';
 });
 
+// --- RETAKE ---
 btnRetake.addEventListener('click', () => {
   snapshot.style.display = 'none';
   video.style.display    = 'block';
@@ -221,53 +231,63 @@ btnRetake.addEventListener('click', () => {
   startPreviewLoop();
 });
 
-//MODEL CACHE 
+// --- MODEL CACHE ---
 async function fetchWithCache(url) {
   try {
-    const cache = await caches.open(CACHE_NAME);
+    const cache     = await caches.open(CACHE_NAME);
     const CACHE_KEY = 'best_fuseboxV1.onnx';
-    const cached = await cache.match(CACHE_KEY);
+    const cached    = await cache.match(CACHE_KEY);
     if (cached) {
       console.log('[Model] Cache\'den yüklendi');
       return cached;
     }
-
     console.log('[Model] İndiriliyor...');
     const response = await fetch(url);
-    console.log('[Model] İndirme tamamlandi — status:', response.status, '| url:', response.url);
-    
     if (response.ok) {
       cache.put(CACHE_KEY, response.clone());
-      console.log('[Model] Cache\'e kaydedildi', CACHE_KEY);
+      console.log('[Model] Cache\'e kaydedildi');
     }
     return response;
   } catch (e) {
-    console.warn('[Model] Cache Hata:', e.message);
-    console.log('[Model]  Direkt fetch deneniyor:', url);
-    return fetch(url, {});
+    console.warn('[Model] Cache hatası:', e.message);
+    return fetch(url);
   }
 }
 
+// --- INIT ---
 async function init() {
   try {
     loadingMsg.textContent = 'Kombinasyonlar yükleniyor…';
     const validUrl = import.meta.env.BASE_URL + 'valid.json';
-    console.log('[Debug] valid.json URL:', validUrl);
     await loadValidCombinations(validUrl);
 
     loadingMsg.textContent = 'Kamera başlatılıyor…';
     await startCamera(video);
-
     syncCanvasSize(canvas, video);
 
     loadingMsg.textContent = 'Model yükleniyor…';
     const modelResponse = await fetchWithCache('https://aoi-fusebox1.neslihan-krdnz53.workers.dev/best_fuseboxV1.onnx');
-    const modelBuffer = await modelResponse.arrayBuffer();
-    await loadModel(modelBuffer);
+    const modelBuffer   = await modelResponse.arrayBuffer();
+
+    // ✅ Worker oluştur — modeli sadece worker içinde yükle (main thread'de loadModel yok)
+    worker = new Worker(new URL('./yolo.worker.js', import.meta.url), { type: 'module' });
+
+    // ✅ slice(0) ile kopyasını gönder — orijinal buffer korunur (PWA/offline güvenliği)
+    worker.postMessage(
+      { type: 'load', payload: { modelBuffer: modelBuffer.slice(0) } }
+    );
+
+    await new Promise((resolve, reject) => {
+      worker.addEventListener('message', (e) => {
+        if (e.data.type === 'loaded') resolve();
+        if (e.data.type === 'error')  reject(new Error(e.data.message));
+      }, { once: true });
+    });
 
     loadingOverlay.classList.add('hidden');
     statusText.textContent = 'Hazır';
     startPreviewLoop();
+
   } catch (err) {
     loadingMsg.textContent = `Hata: ${err.message}`;
     statusText.textContent = 'Hata';

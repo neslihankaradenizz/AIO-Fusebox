@@ -21,6 +21,106 @@ let capturedCanvas = null;
 let previewRunning = false;
 let worker         = null; // worker global — hem preview hem match kullanır
 
+// --- DRAWER KURULUMU ---
+// CSS enjeksiyonu
+const drawerStyle = document.createElement('style');
+drawerStyle.textContent = `
+  #detected-ids {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    max-height: 72vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: rgba(8,8,12,0.97);
+    color: #fff;
+    z-index: 50;
+    padding: 0 8px 24px;
+    border-radius: 18px 18px 0 0;
+    transform: translateY(100%);
+    transition: transform 0.32s cubic-bezier(0.32,0.72,0,1);
+    font-size: 13px;
+    box-shadow: 0 -4px 32px rgba(0,0,0,0.6);
+  }
+  #detected-ids.drawer-open {
+    transform: translateY(0);
+  }
+  #drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 49;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  #drawer-backdrop.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .drawer-handle {
+    width: 44px; height: 4px;
+    background: #3f3f50;
+    border-radius: 2px;
+    margin: 12px auto 10px;
+  }
+  #btn-drawer {
+    display: none;
+    width: 100%;
+    padding: 11px 14px;
+    background: #0f172a;
+    color: #94a3b8;
+    border: 1px solid #1e293b;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 6px;
+    letter-spacing: 0.02em;
+    transition: background 0.2s, color 0.2s;
+  }
+  #btn-drawer.visible {
+    display: block;
+  }
+  #btn-drawer:active {
+    background: #1e293b;
+    color: #e2e8f0;
+  }
+`;
+document.head.appendChild(drawerStyle);
+
+// Backdrop elementi
+const backdrop = document.createElement('div');
+backdrop.id = 'drawer-backdrop';
+document.body.appendChild(backdrop);
+
+// Drawer handle (detectedIdsEl içine ilk çocuk olarak eklenir)
+const drawerHandle = document.createElement('div');
+drawerHandle.className = 'drawer-handle';
+detectedIdsEl.prepend(drawerHandle);
+
+// TESPİT TABLOSU butonu — bottomBar'a eklenir
+const btnDrawer = document.createElement('button');
+btnDrawer.id = 'btn-drawer';
+btnDrawer.textContent = '📋 TESPİT TABLOSU';
+bottomBar.appendChild(btnDrawer);
+
+// Drawer aç/kapat yardımcıları
+function openDrawer() {
+  detectedIdsEl.classList.add('drawer-open');
+  backdrop.classList.add('visible');
+  btnDrawer.textContent = '✕ KAPAT';
+}
+function closeDrawer() {
+  detectedIdsEl.classList.remove('drawer-open');
+  backdrop.classList.remove('visible');
+  btnDrawer.textContent = '📋 TESPİT TABLOSU';
+}
+
+btnDrawer.addEventListener('click', () => {
+  detectedIdsEl.classList.contains('drawer-open') ? closeDrawer() : openDrawer();
+});
+backdrop.addEventListener('click', closeDrawer);
+
 // FPS ADAPTASYONU
 const isLowEnd = (navigator.hardwareConcurrency ?? 4) <= 4 ||
                  (navigator.deviceMemory        ?? 4) <= 2;
@@ -133,8 +233,10 @@ btnCapture.addEventListener('click', () => {
   btnMatch.classList.remove('hidden');
   btnRetake.classList.remove('hidden');
 
+  closeDrawer();
+  btnDrawer.classList.remove('visible');
+  detectedIdsEl.innerHTML   = '<div class="drawer-handle"></div>';
   resultLabel.textContent   = '';
-  detectedIdsEl.textContent = 'Eşleştirmek için butona bas';
   bottomBar.className       = '';
   statusText.textContent    = 'Fotoğraf hazır';
 });
@@ -185,20 +287,7 @@ btnMatch.addEventListener('click', async () => {
 
       const rows = Math.max(LEFT_LABELS.length, RIGHT_LABELS.length); // 9
 
-      detectedIdsEl.style.cssText = [
-        'position:fixed',
-        'left:0','right:0',
-        'bottom:calc(var(--bar-h,80px) + 4px)',
-        'max-height:45vh',
-        'overflow-y:auto',
-        'background:rgba(10,10,10,0.93)',
-        'color:#fff',
-        'z-index:30',
-        'padding:4px 6px 6px',
-        'border-radius:12px 12px 0 0',
-        'font-size:13px',
-      ].join(';');
-
+      // Drawer içeriği — CSS sınıfıyla konumlandırılıyor, inline fixed kalktı
       const ampColor = (val) => {
         if (!val || val === '—') return '#666';
         if (val.includes('empty'))  return '#555';
@@ -250,9 +339,13 @@ btnMatch.addEventListener('click', async () => {
       }
 
       html += `</tbody></table>`;
-      detectedIdsEl.innerHTML = html;
+      detectedIdsEl.innerHTML = '<div class="drawer-handle"></div>' + html;
+
+      // Drawer butonunu göster — analiz tamamlandı
+      btnDrawer.classList.add('visible');
     } else {
-      detectedIdsEl.textContent = 'Nesne bulunamadı';
+      detectedIdsEl.innerHTML = '<div class="drawer-handle"></div><p style="padding:16px;color:#666;text-align:center;">Nesne bulunamadı</p>';
+      btnDrawer.classList.add('visible');
     }
 
     statusText.textContent = state === 'ok' ? 'Eşleşme bulundu ✓' : 'Eşleşme yok';
@@ -280,9 +373,12 @@ btnRetake.addEventListener('click', () => {
   btnRetake.classList.add('hidden');
 
   resultLabel.textContent   = '';
-  detectedIdsEl.textContent = '';
+  detectedIdsEl.innerHTML   = '<div class="drawer-handle"></div>';
   bottomBar.className       = '';
   statusText.textContent    = 'Kamera aktif';
+
+  closeDrawer();
+  btnDrawer.classList.remove('visible');
 
   startPreviewLoop();
 });

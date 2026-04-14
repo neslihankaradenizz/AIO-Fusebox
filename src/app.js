@@ -255,6 +255,11 @@ async function fetchWithCache(url) {
 }
 
 // --- INIT ---
+const ORT_FILES = [
+  'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/ort.wasm.min.js',
+  'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/ort-wasm-simd-threaded.wasm',
+];
+
 async function init() {
   try {
     loadingMsg.textContent = 'Kombinasyonlar yükleniyor…';
@@ -265,14 +270,22 @@ async function init() {
     await startCamera(video);
     syncCanvasSize(canvas, video);
 
+    // ✅ ORT dosyalarını cache'e al
+    loadingMsg.textContent = 'ORT yükleniyor…';
+    await Promise.all(ORT_FILES.map(async url => {
+      const cache = await caches.open(CACHE_NAME);
+      if (!await cache.match(url)) {
+        const res = await fetch(url);
+        if (res.ok) cache.put(url, res.clone());
+        console.log('[Cache] ORT dosyası kaydedildi:', url);
+      }
+    })); // ✅ Promise.all burada kapanıyor
+
     loadingMsg.textContent = 'Model yükleniyor…';
     const modelResponse = await fetchWithCache('https://aoi-fusebox1.neslihan-krdnz53.workers.dev/best_fuseboxV1.onnx');
     const modelBuffer   = await modelResponse.arrayBuffer();
 
-    // ✅ Worker oluştur — modeli sadece worker içinde yükle (main thread'de loadModel yok)
     worker = new Worker(new URL('./yolo.worker.js', import.meta.url), { type: 'module' });
-
-    // ✅ slice(0) ile kopyasını gönder — orijinal buffer korunur (PWA/offline güvenliği)
     worker.postMessage(
       { type: 'load', payload: { modelBuffer: modelBuffer.slice(0) } }
     );

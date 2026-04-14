@@ -4,11 +4,12 @@ import { loadModel, runInference, preprocessCanvas, postprocess } from './yolo.j
 const ORT_BASE = 'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/';
 
 async function loadOrt() {
-  const res  = await fetch(ORT_BASE + 'ort-wasm-simd-threaded.mjs');
+  const res  = await fetch(ORT_BASE + 'ort.wasm.min.js');
   const code = await res.text();
-  (0, eval)(code); 
+  (0, eval)(code);
 
   console.log('[Worker] self.ort:', typeof self.ort);
+  if (!self.ort) throw new Error('ORT yüklenemedi');
 
   self.ort.env.wasm.wasmPaths = ORT_BASE;
   self.ort.env.wasm.numThreads = 1;

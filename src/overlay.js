@@ -28,9 +28,35 @@ function getRoi(canvas) {
     h: Math.round(canvas.height * ROI_RATIO.h),
   };
 }
+/**
+ * Canvas attribute boyutunu kaynağın GERÇEK piksel çözünürlüğüne eşitler.
+ * clientWidth/offsetWidth CSS pikselidir — retina ekranlarda 2-3x küçük gelir
+ * ve bu hem box kaymasına hem de bulanık çizime yol açar.
+ */
 export function syncCanvasSize(canvas, source) {
-  canvas.width  = source.clientWidth  || source.offsetWidth;
-  canvas.height = source.clientHeight || source.offsetHeight;
+  let w, h;
+ 
+  if (source instanceof HTMLVideoElement) {
+    // Video: gerçek kamera çözünürlüğü
+    w = source.videoWidth  || source.clientWidth;
+    h = source.videoHeight || source.clientHeight;
+  } else if (source instanceof HTMLImageElement) {
+    // Snapshot img: naturalWidth = gerçek piksel boyutu
+    w = source.naturalWidth  || source.clientWidth;
+    h = source.naturalHeight || source.clientHeight;
+  } else {
+    // Canvas veya OffscreenCanvas
+    w = source.width  || source.clientWidth;
+    h = source.height || source.clientHeight;
+  }
+ 
+  canvas.width  = w;
+  canvas.height = h;
+ 
+  // Canvas'ı CSS'te kaynakla aynı görsel alana kilitle
+  // (CSS zaten %100 yapıyorsa bu satırlar zarar vermez)
+  canvas.style.width  = '100%';
+  canvas.style.height = '100%';
 }
 
 export function clearCanvas(canvas) {
@@ -74,6 +100,7 @@ export function drawDetections(canvas, source, detections, roiOffset = { x: 0, y
 
   const dispW  = canvas.width;
   const dispH  = canvas.height;
+  
   const srcW   = source.videoWidth  || source.naturalWidth  || source.width;
   const srcH   = source.videoHeight || source.naturalHeight || source.height;
   const scaleX = dispW / srcW;

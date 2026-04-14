@@ -19,7 +19,7 @@ const btnRetake      = document.getElementById('btn-retake');
 
 let capturedCanvas = null;
 let previewRunning = false;
-let worker         = null; // ✅ worker global — hem preview hem match kullanır
+let worker         = null; // worker global — hem preview hem match kullanır
 
 // FPS ADAPTASYONU
 const isLowEnd = (navigator.hardwareConcurrency ?? 4) <= 4 ||
@@ -34,7 +34,7 @@ window.addEventListener('resize', onResize);
 
 let lastHadDetections = false;
 let loopTimer         = null;
-let inferBusy         = false; // ✅ worker meşgulken tekrar gönderme
+let inferBusy         = false; // worker meşgulken tekrar gönderme
 
 // --- Worker'a inference gönder, Promise döner ---
 function workerInfer(imageBitmap, width, height) {
@@ -109,7 +109,7 @@ function stopPreviewLoop() {
 btnCapture.addEventListener('click', () => {
   stopPreviewLoop();
 
-  // ✅ Direkt ROI'yi kes — tam çözünürlüğe gerek yok
+  // Direkt ROI'yi kes — tam çözünürlüğe gerek yok
   const { cropped, roi } = cropRoi(video);
 
   capturedCanvas = document.createElement('canvas');
@@ -117,13 +117,18 @@ btnCapture.addEventListener('click', () => {
   capturedCanvas.height = roi.h;
   capturedCanvas.getContext('2d').drawImage(cropped, 0, 0); // ✅ `captured` değil `capturedCanvas`
 
-  snapshot.src           = capturedCanvas.toDataURL('image/jpeg');
   snapshot.style.display = 'block';
   video.style.display    = 'none';
 
-  syncCanvasSize(canvas, snapshot);
-  clearCanvas(canvas);
-  drawRoi(canvas, false);
+  // snapshot.src async yüklenir — naturalWidth/Height onload'dan sonra hazır olur.
+  // onload beklemeden syncCanvasSize çağrılırsa boyutlar 0 gelir ve canvas bozulur.
+  snapshot.onload = () => {
+    syncCanvasSize(canvas, snapshot);
+    clearCanvas(canvas);
+    drawRoi(canvas, false);
+    snapshot.onload = null; // tek seferlik
+  };
+  snapshot.src = capturedCanvas.toDataURL('image/jpeg');
 
   btnCapture.classList.add('hidden');
   btnMatch.classList.remove('hidden');
@@ -146,11 +151,11 @@ btnMatch.addEventListener('click', async () => {
   try {
     syncCanvasSize(canvas, snapshot);
 
-    // ✅ capturedCanvas zaten ROI — tekrar cropRoi'ye gerek yok
+    // apturedCanvas zaten ROI — tekrar cropRoi'ye gerek yok
     const cropped = capturedCanvas;
     const roi     = { x: 0, y: 0, w: capturedCanvas.width, h: capturedCanvas.height };
 
-    // ✅ Worker üzerinden inference — UI donmuyor
+    //  Worker üzerinden inference — UI donmuyor
     const bitmap     = await createImageBitmap(cropped);
     const detections = await workerInfer(bitmap, cropped.width, cropped.height);
 
@@ -174,7 +179,7 @@ btnMatch.addEventListener('click', async () => {
       const right  = sorted.filter(d => d.colIndex === 1).map(d => getClassName(d.classId));
       const rows   = Math.max(left.length, right.length);
 
-      // ✅ Sadece innerHTML kullan — sonra textContent ile ezme
+      // Sadece innerHTML kullan — sonra textContent ile ezme
       let html = `
         <table style="width:100%; border-collapse:collapse; text-align:center;">
           <thead>
@@ -194,7 +199,7 @@ btnMatch.addEventListener('click', async () => {
         `;
       }
       html += `</tbody></table>`;
-      detectedIdsEl.innerHTML = html; // ✅ textContent ile ezilmiyor
+      detectedIdsEl.innerHTML = html;
     } else {
       detectedIdsEl.textContent = 'Nesne bulunamadı';
     }

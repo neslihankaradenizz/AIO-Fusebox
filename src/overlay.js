@@ -100,7 +100,7 @@ export function drawDetections(canvas, source, detections, roiOffset = { x: 0, y
 
   const dispW  = canvas.width;
   const dispH  = canvas.height;
-  
+
   const srcW   = source.videoWidth  || source.naturalWidth  || source.width;
   const srcH   = source.videoHeight || source.naturalHeight || source.height;
   const scaleX = dispW / srcW;
@@ -118,6 +118,13 @@ export function drawDetections(canvas, source, detections, roiOffset = { x: 0, y
     ctx.lineWidth   = 2.5;
     ctx.strokeRect(bx, by, bw, bh);
   }
+    console.log('DRAW', {
+    canvasW: canvas.width, canvasH: canvas.height,
+    srcW: source.naturalWidth || source.videoWidth,
+    srcH: source.naturalHeight || source.videoHeight,
+    clientW: source.clientWidth, clientH: source.clientHeight,
+    detCount: detections.length
+  });
 
   drawLegend(canvas, ctx);
 }

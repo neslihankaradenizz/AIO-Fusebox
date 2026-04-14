@@ -4,19 +4,15 @@ import { loadModel, runInference, preprocessCanvas, postprocess } from './yolo.j
 const ORT_BASE = 'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/';
 
 async function loadOrt() {
-  
-  const ortModule = await import(ORT_BASE + 'ort-wasm-simd-threaded.jsep.mjs');
-  
-  console.log('[Worker] jsep keys:', Object.keys(ortModule));
+  const res  = await fetch(ORT_BASE + 'ort-wasm-simd-threaded.mjs');
+  const code = await res.text();
+  (0, eval)(code); 
 
-  
-  self.ort = ortModule;
+  console.log('[Worker] self.ort:', typeof self.ort);
 
   self.ort.env.wasm.wasmPaths = ORT_BASE;
   self.ort.env.wasm.numThreads = 1;
   self.ort.env.wasm.proxy = false;
-
-  console.log('[Worker] ORT hazır, InferenceSession:', typeof self.ort.InferenceSession);
 }
 
 self.onmessage = async (e) => {

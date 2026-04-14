@@ -8,14 +8,18 @@ async function loadOrt() {
   const code = await res.text();
   (0, eval)(code);
 
+  
   console.log('[Worker] self.ort:', typeof self.ort);
-  if (!self.ort) throw new Error('ORT yüklenemedi');
-
-  self.ort.env.wasm.wasmPaths = ORT_BASE;
-  self.ort.env.wasm.numThreads = 1;
-  self.ort.env.wasm.proxy = false;
+  console.log('[Worker] self.onnx:', typeof self.onnx);
+  console.log('[Worker] self.ort_wasm:', typeof self.ort_wasm);
+  
+  const possible = ['ort', 'onnx', 'OnnxRuntime', 'ort_wasm'];
+  for (const key of possible) {
+    if (self[key]) {
+      console.log('[Worker] Bulundu! Global key:', key, typeof self[key]);
+    }
+  }
 }
-
 self.onmessage = async (e) => {
   const { type, payload } = e.data;
 

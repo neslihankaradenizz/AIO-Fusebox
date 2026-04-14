@@ -6,20 +6,14 @@ const ORT_BASE = 'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/';
 async function loadOrt() {
   const ortModule = await import(ORT_BASE + 'ort-wasm-simd-threaded.mjs');
   
+  const ort = await ortModule.default();
+
   console.log('[Worker] ortModule keys:', Object.keys(ortModule));
   console.log('[Worker] ortModule.default:', typeof ortModule.default);
   console.log('[Worker] ortModule.ort:', typeof ortModule.ort);
   console.log('[Worker] ortModule.InferenceSession:', typeof ortModule.InferenceSession);
 
-  // InferenceSession direkt export ediliyorsa, ort objesi olarak paketle
-  if (ortModule.InferenceSession) {
-    self.ort = ortModule;
-  } else if (ortModule.default?.InferenceSession) {
-    self.ort = ortModule.default;
-  } else {
-    throw new Error('ORT export yapısı tanınamadı: ' + Object.keys(ortModule).join(', '));
-  }
-
+  self.ort=ort;
   self.ort.env.wasm.wasmPaths = ORT_BASE;
   self.ort.env.wasm.numThreads = 1;
   self.ort.env.wasm.proxy = false;

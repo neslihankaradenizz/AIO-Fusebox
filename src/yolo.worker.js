@@ -1,10 +1,24 @@
+// yolo.worker.js
 import { loadModel, runInference, preprocessCanvas, postprocess } from './yolo.js';
 
 const ORT_BASE = 'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/';
 
 async function loadOrt() {
-  // min.js yok — mevcut full modüle yükle
-  await import(ORT_BASE + 'ort-wasm-simd-threaded.mjs');  // ← R2'deki asıl dosya
+  // 1. wasmPaths'i önceden set et
+  self.ort = undefined;
+
+  // 2. ORT mjs modülünü dinamik import et
+  const ortModule = await import(ORT_BASE + 'ort-wasm-simd-threaded.mjs');
+  
+  // 3. self.ort'a ata — yolo.js'deki getOrt() bunu bekliyor
+  self.ort = ortModule.default ?? ortModule;
+
+  // 4. wasmPaths'i set et
+  self.ort.env.wasm.wasmPaths = ORT_BASE;
+  self.ort.env.wasm.numThreads = 1;
+  self.ort.env.wasm.proxy = false;
+
+  console.log('[Worker] ORT yüklendi:', !!self.ort);
 }
 
 self.onmessage = async (e) => {

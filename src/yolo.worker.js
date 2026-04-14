@@ -6,19 +6,12 @@ const ORT_BASE = 'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/';
 async function loadOrt() {
   const res  = await fetch(ORT_BASE + 'ort.wasm.min.js');
   const code = await res.text();
+  
+  // İlk 500 karaktere bak — ne tür bir dosya olduğunu anlayalım
+  console.log('[Worker] ort.wasm.min.js ilk 500 char:', code.substring(0, 500));
+  console.log('[Worker] dosya boyutu:', code.length);
+  
   (0, eval)(code);
-
-  
-  console.log('[Worker] self.ort:', typeof self.ort);
-  console.log('[Worker] self.onnx:', typeof self.onnx);
-  console.log('[Worker] self.ort_wasm:', typeof self.ort_wasm);
-  
-  const possible = ['ort', 'onnx', 'OnnxRuntime', 'ort_wasm'];
-  for (const key of possible) {
-    if (self[key]) {
-      console.log('[Worker] Bulundu! Global key:', key, typeof self[key]);
-    }
-  }
 }
 self.onmessage = async (e) => {
   const { type, payload } = e.data;

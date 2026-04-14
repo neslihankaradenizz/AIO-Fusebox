@@ -6,19 +6,29 @@ const ORT_BASE = 'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/';
 async function loadOrt() {
   const ortModule = await import(ORT_BASE + 'ort-wasm-simd-threaded.mjs');
   
-  const ort = await ortModule.default();
+  // Emscripten factory'ye locateFile ile WASM path'ini söyle
+  const ort = await ortModule.default({
+    locateFile: (filename) => {
+      console.log('[Worker] locateFile:', filename);
+      return ORT_BASE + filename;
+    }
+  });
 
-  console.log('[Worker] ortModule keys:', Object.keys(ortModule));
-  console.log('[Worker] ortModule.default:', typeof ortModule.default);
-  console.log('[Worker] ortModule.ort:', typeof ortModule.ort);
-  console.log('[Worker] ortModule.InferenceSession:', typeof ortModule.InferenceSession);
+  console.log('[Worker] ort type:', typeof ort);
+  console.log('[Worker] ort keys:', Object.keys(ort ?? {}));
 
-  self.ort=ort;
-  self.ort.env.wasm.wasmPaths = ORT_BASE;
-  self.ort.env.wasm.numThreads = 1;
-  self.ort.env.wasm.proxy = false;
+  if (!ort) throw new Error('ORT factory undefined döndü');
 
-  console.log('[Worker] ORT yüklendi, InferenceSession:', !!self.ort.InferenceSession);
+  self.ort = ort;
+
+  // env sadece gerçek ORT objesinde olur
+  if (self.ort.env) {
+    self.ort.env.wasm.wasmPaths = ORT_BASE;
+    self.ort.env.wasm.numThreads = 1;
+    self.ort.env.wasm.proxy = false;
+  }
+
+  console.log('[Worker] ORT hazır, InferenceSession:', typeof self.ort.InferenceSession);
 }
 
 self.onmessage = async (e) => {

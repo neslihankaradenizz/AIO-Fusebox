@@ -1,19 +1,18 @@
-// yolo.worker.js
 import { loadModel, runInference, preprocessCanvas, postprocess } from './yolo.js';
 
-async function loadOrt(ortUrl) {
-  const res  = await fetch(ortUrl, { mode: 'cors' });  // ✅ explicit cors
-  const code = await res.text();
-  (0, eval)(code);
+const ORT_BASE = 'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/';
+
+async function loadOrt() {
+  // min.js yok — mevcut full modüle yükle
+  await import(ORT_BASE + 'ort-wasm-simd-threaded.mjs');  // ← R2'deki asıl dosya
 }
 
 self.onmessage = async (e) => {
-  // ... geri kalanı aynı
   const { type, payload } = e.data;
 
   if (type === 'load') {
     try {
-      await loadOrt('https://aoi-fusebox1.neslihan-krdnz53.workers.dev/ort.wasm.min.js');
+      await loadOrt();
       await loadModel(payload.modelBuffer);
       self.postMessage({ type: 'loaded' });
     } catch (err) {

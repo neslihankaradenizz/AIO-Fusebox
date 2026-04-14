@@ -6,13 +6,20 @@ const ORT_BASE = 'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/';
 async function loadOrt() {
   const res  = await fetch(ORT_BASE + 'ort.wasm.min.js');
   const code = await res.text();
-  
-  // İlk 500 karaktere bak — ne tür bir dosya olduğunu anlayalım
-  console.log('[Worker] ort.wasm.min.js ilk 500 char:', code.substring(0, 500));
-  console.log('[Worker] dosya boyutu:', code.length);
-  
-  (0, eval)(code);
+
+  const script = code + '\nself.ort = ort;';
+  (0, eval)(script);
+
+  console.log('[Worker] self.ort:', typeof self.ort);
+  console.log('[Worker] InferenceSession:', typeof self.ort?.InferenceSession);
+
+  if (!self.ort) throw new Error('ORT yüklenemedi');
+
+  self.ort.env.wasm.wasmPaths = ORT_BASE;
+  self.ort.env.wasm.numThreads = 1;
+  self.ort.env.wasm.proxy = false;
 }
+
 self.onmessage = async (e) => {
   const { type, payload } = e.data;
 

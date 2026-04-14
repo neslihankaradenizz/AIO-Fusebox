@@ -3,15 +3,15 @@ const CORNER_LEN = 22;
 const CORNER_W   = 4;
 
 const CLASS_STYLES = {
-  0: { color: '#ef731b', label: '10_amp'  },  //  turunuc
-  1: { color: '#80acf4', label: '15_amp'  },  // acik mavi
-  2: { color: '#eab308', label: '20_amp'  },  // sari
-  3: { color: '#f03eac', label: '25_amp'  },  // pembe
-  4: { color: '#cd1df4', label: '2_amp'   },  // mor
-  5: { color: '#030bfa', label: '30_amp'  },  // lacivert
-  6: { color: '#f80808', label: '5_amp'   },  // kirmizi
-  7: { color: '#5df184', label: '7.5_amp' },  // acik yesil
-  8: { color: '#503131', label: 'empty'  },  // kahverengi
+  0: { color: '#ef731b', label: '10_amp'  },
+  1: { color: '#80acf4', label: '15_amp'  },
+  2: { color: '#eab308', label: '20_amp'  },
+  3: { color: '#f03eac', label: '25_amp'  },
+  4: { color: '#cd1df4', label: '2_amp'   },
+  5: { color: '#030bfa', label: '30_amp'  },
+  6: { color: '#f80808', label: '5_amp'   },
+  7: { color: '#5df184', label: '7.5_amp' },
+  8: { color: '#503131', label: 'empty'   },
 };
 
 const DEFAULT_STYLE = { color: '#f59e0b', label: '?' };
@@ -28,43 +28,38 @@ function getRoi(canvas) {
     h: Math.round(canvas.height * ROI_RATIO.h),
   };
 }
+
 /**
  * Canvas attribute boyutunu kaynağın GERÇEK piksel çözünürlüğüne eşitler.
- * clientWidth/offsetWidth CSS pikselidir — retina ekranlarda 2-3x küçük gelir
- * ve bu hem box kaymasına hem de bulanık çizime yol açar.
+ * clientWidth DEĞİL — videoWidth / naturalWidth kullanılır.
  */
 export function syncCanvasSize(canvas, source) {
   let w, h;
- 
+
   if (source instanceof HTMLVideoElement) {
-    // Video: gerçek kamera çözünürlüğü
-    w = source.videoWidth  || source.clientWidth;
-    h = source.videoHeight || source.clientHeight;
+    w = source.videoWidth;
+    h = source.videoHeight;
   } else if (source instanceof HTMLImageElement) {
-    // Snapshot img: naturalWidth = gerçek piksel boyutu
-    w = source.naturalWidth  || source.clientWidth;
-    h = source.naturalHeight || source.clientHeight;
+    w = source.naturalWidth;
+    h = source.naturalHeight;
   } else {
-    // Canvas veya OffscreenCanvas
-    w = source.width  || source.clientWidth;
-    h = source.height || source.clientHeight;
+    w = source.width;
+    h = source.height;
   }
- 
+
+  if (!w || !h) {
+    console.warn('[syncCanvasSize] Kaynak boyutu henüz hazır değil:', w, h);
+    return;
+  }
+
   canvas.width  = w;
   canvas.height = h;
- 
-  // Canvas'ı CSS'te kaynakla aynı görsel alana kilitle
-  // (CSS zaten %100 yapıyorsa bu satırlar zarar vermez)
-  canvas.style.width  = '100%';
-  canvas.style.height = '100%';
 }
 
 export function clearCanvas(canvas) {
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 }
 
-// nesne yok - beyaz nesne var- kirnizi 
 export function drawRoi(canvas, hasDetections) {
   const ctx = canvas.getContext('2d');
   const { x, y, w, h } = getRoi(canvas);
@@ -72,7 +67,6 @@ export function drawRoi(canvas, hasDetections) {
 
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-
   ctx.clearRect(x, y, w, h);
 
   ctx.strokeStyle = color;
@@ -95,24 +89,23 @@ export function drawRoi(canvas, hasDetections) {
   }
 }
 
+/**
+ * Tespit kutularını canvas üzerine çizer.
+ * canvas.width == source.naturalWidth olmalı → scaleX = 1.0 → kayma = 0
+ */
 export function drawDetections(canvas, source, detections, roiOffset = { x: 0, y: 0 }) {
-   console.log('DRAW', {
-    canvasW: canvas.width, canvasH: canvas.height,
-    srcW: source.naturalWidth || source.videoWidth,
-    srcH: source.naturalHeight || source.videoHeight,
-    clientW: source.clientWidth, clientH: source.clientHeight,
-    detCount: detections.length
-  });
-  
   const ctx = canvas.getContext('2d');
 
   const dispW  = canvas.width;
   const dispH  = canvas.height;
-  
   const srcW   = source.videoWidth  || source.naturalWidth  || source.width;
   const srcH   = source.videoHeight || source.naturalHeight || source.height;
   const scaleX = dispW / srcW;
   const scaleY = dispH / srcH;
+
+  if (Math.abs(scaleX - 1) > 0.01 || Math.abs(scaleY - 1) > 0.01) {
+    console.warn(`[drawDetections] Scale != 1 → kayma beklenir! scaleX=${scaleX.toFixed(3)} scaleY=${scaleY.toFixed(3)} | canvas=${dispW}x${dispH} src=${srcW}x${srcH}`);
+  }
 
   for (const det of detections) {
     const bx = (det.x + roiOffset.x) * scaleX;
@@ -121,7 +114,6 @@ export function drawDetections(canvas, source, detections, roiOffset = { x: 0, y
     const bh = det.height * scaleY;
 
     const style = CLASS_STYLES[det.classId] ?? DEFAULT_STYLE;
-
     ctx.strokeStyle = style.color;
     ctx.lineWidth   = 2.5;
     ctx.strokeRect(bx, by, bw, bh);
@@ -130,7 +122,6 @@ export function drawDetections(canvas, source, detections, roiOffset = { x: 0, y
   drawLegend(canvas, ctx);
 }
 
-// 2 sütunlu legend — sol alt köşe
 function drawLegend(canvas, ctx) {
   const entries  = Object.entries(CLASS_STYLES);
   const cols     = 2;
@@ -145,14 +136,10 @@ function drawLegend(canvas, ctx) {
   const lx       = 8;
   const ly       = canvas.height - legendH - 8;
 
-  // Arka plan
   ctx.fillStyle = 'rgba(0,0,0,0.65)';
   ctx.beginPath();
-  if (ctx.roundRect) {
-    ctx.roundRect(lx, ly, legendW, legendH, 6);
-  } else {
-    ctx.rect(lx, ly, legendW, legendH);
-  }
+  if (ctx.roundRect) ctx.roundRect(lx, ly, legendW, legendH, 6);
+  else               ctx.rect(lx, ly, legendW, legendH);
   ctx.fill();
 
   ctx.font = `bold ${fontSize}px sans-serif`;
@@ -163,16 +150,13 @@ function drawLegend(canvas, ctx) {
     const ex  = lx + padding + col * colW;
     const ey  = ly + padding + row * lineH;
 
-    // Renk kutusu
     ctx.fillStyle = style.color;
     ctx.fillRect(ex, ey, boxSize, boxSize);
 
-    // Kenarlık (beyaz gibi açık renkler için)
     ctx.strokeStyle = 'rgba(255,255,255,0.3)';
     ctx.lineWidth   = 0.5;
     ctx.strokeRect(ex, ey, boxSize, boxSize);
 
-    // Label
     ctx.fillStyle = '#ffffff';
     ctx.fillText(style.label, ex + boxSize + 4, ey + boxSize - 1);
   });
@@ -181,7 +165,6 @@ function drawLegend(canvas, ctx) {
 const offscreenFull = document.createElement('canvas');
 const offscreenCrop = document.createElement('canvas');
 
-// ROI crop —parametre srcCanvas → src, videpWidth → videoWidth
 export function cropRoi(src) {
   const isVideo = src instanceof HTMLVideoElement;
   const srcW    = isVideo ? src.videoWidth  : src.width;
@@ -204,7 +187,6 @@ export function cropRoi(src) {
     srcCanvas = src;
   }
 
-  // sadece roi alanini modele gonder
   offscreenCrop.width  = roi.w;
   offscreenCrop.height = roi.h;
   offscreenCrop.getContext('2d').drawImage(

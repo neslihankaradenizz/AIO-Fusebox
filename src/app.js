@@ -16,6 +16,8 @@ const detectedIdsEl  = document.getElementById('detected-ids');
 const btnCapture     = document.getElementById('btn-capture');
 const btnMatch       = document.getElementById('btn-match');
 const btnRetake      = document.getElementById('btn-retake');
+const resultTable    = document.getElementById('result-table');
+const resultTableBody = document.getElementById('result-table-body');
 
 let capturedCanvas = null;
 let previewRunning = false;
@@ -275,75 +277,53 @@ btnMatch.addEventListener('click', async () => {
     resultLabel.textContent = state === 'ok' ? 'OK' : state === 'nok' ? 'NOK' : '—';
 
     if (classIds.length > 0) {
-      const sorted = sortDetections(detections, roi.w);
-
-      // Sol kolon: colIndex===0, üstten alta sıralı → F1..F9
+      const sorted    = sortDetections(detections, roi.w);
       const leftDets  = sorted.filter(d => d.colIndex === 0);
-      // Sağ kolon: colIndex===1, üstten alta sıralı → F10..F17, TEST
       const rightDets = sorted.filter(d => d.colIndex === 1);
 
       const LEFT_LABELS  = ['F1','F2','F3','F4','F5','F6','F7','F8','F9'];
       const RIGHT_LABELS = ['F10','F11','F12','F13','F14','F15','F16','F17','TEST'];
 
-      const rows = Math.max(LEFT_LABELS.length, RIGHT_LABELS.length); // 9
-
-      // Drawer içeriği — CSS sınıfıyla konumlandırılıyor, inline fixed kalktı
-      const ampColor = (val) => {
-        if (!val || val === '—') return '#666';
-        if (val.includes('empty'))  return '#555';
-        if (val.includes('2'))      return '#a78bfa';
-        if (val.includes('3'))      return '#c084fc';
-        if (val.includes('5'))      return '#fb923c';
-        if (val.includes('7.5'))    return '#f87171';
-        if (val.includes('10'))     return '#f87171';
-        if (val.includes('15'))     return '#60a5fa';
-        if (val.includes('20'))     return '#facc15';
-        if (val.includes('25'))     return '#4ade80';
-        if (val.includes('30'))     return '#34d399';
-        if (val.includes('52'))     return '#f472b6';
-        return '#e2e8f0';
+      // Amp değerine göre CSS sınıfı
+      const ampClass = (val) => {
+        if (!val || val === '—')        return 'amp-none';
+        if (val.includes('empty'))      return 'amp-empty';
+        if (val.includes('52'))         return 'amp-52';
+        if (val.includes('30'))         return 'amp-30';
+        if (val.includes('25'))         return 'amp-25';
+        if (val.includes('20'))         return 'amp-20';
+        if (val.includes('15'))         return 'amp-15';
+        if (val.includes('10'))         return 'amp-10';
+        if (val.includes('7'))          return 'amp-7';
+        if (val.includes('5'))          return 'amp-5';
+        if (val.includes('3'))          return 'amp-3';
+        if (val.includes('2'))          return 'amp-2';
+        return '';
       };
 
-      const thStyle  = 'padding:5px 6px; border-bottom:2px solid #444; color:#aaa; font-size:11px; text-align:center;';
-      const lblStyle = 'padding:4px 5px; border-bottom:1px solid #222; color:#777; font-weight:700; font-size:12px; width:38px; text-align:right;';
-      const valStyle = 'padding:4px 8px; border-bottom:1px solid #222; font-weight:600; text-align:left;';
-      const sepStyle = 'width:10px; border-bottom:1px solid #111;';
-
-      let html = `
-        <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
-          <colgroup>
-            <col style="width:38px"><col>
-            <col style="width:10px">
-            <col style="width:38px"><col>
-          </colgroup>
-          <thead><tr>
-            <th colspan="2" style="${thStyle}">◀ SOL (J2)</th>
-            <th style="border-bottom:2px solid #444;"></th>
-            <th colspan="2" style="${thStyle}">SAĞ (J3) ▶</th>
-          </tr></thead>
-          <tbody>
-      `;
-
-      for (let i = 0; i < rows; i++) {
+      // Sadece tbody'yi doldur — yapı index.html'de
+      let rows = '';
+      for (let i = 0; i < 9; i++) {
         const lLabel = LEFT_LABELS[i]  ?? '';
         const rLabel = RIGHT_LABELS[i] ?? '';
-        const lVal   = leftDets[i]  ? getClassName(leftDets[i].classId)  : (lLabel ? '—' : '');
-        const rVal   = rightDets[i] ? getClassName(rightDets[i].classId) : (rLabel ? '—' : '');
-        html += `<tr>
-          <td style="${lblStyle}">${lLabel}</td>
-          <td style="${valStyle} color:${ampColor(lVal)};">${lVal}</td>
-          <td style="${sepStyle}"></td>
-          <td style="${lblStyle}">${rLabel}</td>
-          <td style="${valStyle} color:${ampColor(rVal)};">${rVal}</td>
+        const lVal   = leftDets[i]  ? getClassName(leftDets[i].classId)  : '—';
+        const rVal   = rightDets[i] ? getClassName(rightDets[i].classId) : '—';
+        rows += `<tr>
+          <td class="lbl">${lLabel}</td>
+          <td class="val ${ampClass(lVal)}">${lVal}</td>
+          <td class="sep"></td>
+          <td class="lbl">${rLabel}</td>
+          <td class="val ${ampClass(rVal)}">${rVal}</td>
         </tr>`;
       }
-
-      html += `</tbody></table>`;
-      detectedIdsEl.innerHTML = '<div class="drawer-handle"></div>' + html;
+      resultTableBody.innerHTML = rows;
+      resultTable.classList.add('visible');
 
       // Drawer butonunu göster — analiz tamamlandı
       btnDrawer.classList.add('visible');
     } else {
+      resultTableBody.innerHTML = '';
+      resultTable.classList.remove('visible');
       detectedIdsEl.innerHTML = '<div class="drawer-handle"></div><p style="padding:16px;color:#666;text-align:center;">Nesne bulunamadı</p>';
       btnDrawer.classList.add('visible');
     }
@@ -377,6 +357,8 @@ btnRetake.addEventListener('click', () => {
   bottomBar.className       = '';
   statusText.textContent    = 'Kamera aktif';
 
+  resultTable.classList.remove('visible');
+  resultTableBody.innerHTML = '';
   closeDrawer();
   btnDrawer.classList.remove('visible');
 

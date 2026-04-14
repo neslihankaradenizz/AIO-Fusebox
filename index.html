@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>AIO-FUSEBOX VISION</title>
-
     <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
  
@@ -183,6 +182,60 @@
       text-align: center;
       padding: 0 8px;
     }
+
+    /* ── RESULT TABLE ────────────────────────── */
+    #result-table {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: calc(var(--bottom-h) + var(--safe-bottom) + 4px);
+      max-height: 42vh;
+      overflow-y: auto;
+      background: rgba(10,10,10,0.93);
+      backdrop-filter: blur(6px);
+      border-radius: 12px 12px 0 0;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      z-index: 50;
+      font-size: clamp(0.72rem, 3vw, 0.82rem);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      display: none;
+    }
+    #result-table.visible { display: block; }
+
+    #result-table table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    #result-table thead th {
+      padding: 6px 8px;
+      border-bottom: 2px solid rgba(255,255,255,0.10);
+      color: #64748b;
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      text-align: center;
+    }
+    #result-table tbody td       { padding: 5px 6px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    #result-table tbody td.lbl   { text-align: right; color: #475569; font-weight: 700; font-size: 0.7rem; padding-right: 4px; width: 38px; }
+    #result-table tbody td.val   { font-weight: 600; padding-left: 8px; }
+    #result-table tbody td.sep   { width: 10px; border-bottom: 1px solid rgba(0,0,0,0.4); background: rgba(255,255,255,0.02); }
+
+    /* amp renk sınıfları */
+    .amp-empty { color: #3f3f46 !important; }
+    .amp-2     { color: #a78bfa !important; }
+    .amp-3     { color: #c084fc !important; }
+    .amp-5     { color: #fb923c !important; }
+    .amp-7     { color: #fca5a5 !important; }
+    .amp-10    { color: #f87171 !important; }
+    .amp-15    { color: #60a5fa !important; }
+    .amp-20    { color: #facc15 !important; }
+    .amp-25    { color: #4ade80 !important; }
+    .amp-30    { color: #34d399 !important; }
+    .amp-52    { color: #f472b6 !important; }
+    .amp-none  { color: #374151 !important; }
  
     /* ── BUTTONS ─────────────────────────────── */
     .btn {
@@ -231,6 +284,27 @@
       <div class="spinner"></div>
       <span id="loading-message">Model yükleniyor…</span>
     </div>
+  </div>
+
+  <!-- Tablo: bottom-bar üzerinde, JS tarafından doldurulur -->
+  <div id="result-table">
+    <table>
+      <colgroup>
+        <col style="width:38px"><col>
+        <col style="width:10px">
+        <col style="width:38px"><col>
+      </colgroup>
+      <thead>
+        <tr>
+          <th colspan="2">25c4 SOL (J2)</th>
+          <th></th>
+          <th colspan="2">SA011e (J3) 25ba</th>
+        </tr>
+      </thead>
+      <tbody id="result-table-body">
+        <!-- F12013F9 / F102013F17 TEST sat0131rlar0131 JS ile doldurulur -->
+      </tbody>
+    </table>
   </div>
 
   <div id="bottom-bar">

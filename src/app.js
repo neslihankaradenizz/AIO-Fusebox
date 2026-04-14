@@ -174,31 +174,81 @@ btnMatch.addEventListener('click', async () => {
 
     if (classIds.length > 0) {
       const sorted = sortDetections(detections, roi.w);
-      const left   = sorted.filter(d => d.colIndex === 0).map(d => getClassName(d.classId));
-      const right  = sorted.filter(d => d.colIndex === 1).map(d => getClassName(d.classId));
-      const rows   = Math.max(left.length, right.length);
 
-      // Sadece innerHTML kullan — sonra textContent ile ezme
-      // Tabloyu bottom-bar'ın ustunde gosterme
-      detectedIdsEl.style.cssText = 'position:fixed;left:0;right:0;bottom:calc(var(--bar-h,80px) + 8px);max-height:40vh;overflow-y:auto;background:rgba(0,0,0,0.82);color:#fff;z-index:30;padding:6px 4px;border-radius:10px 10px 0 0';
+      // Sol kolon: colIndex===0, üstten alta sıralı → F1..F9
+      const leftDets  = sorted.filter(d => d.colIndex === 0);
+      // Sağ kolon: colIndex===1, üstten alta sıralı → F10..F17, TEST
+      const rightDets = sorted.filter(d => d.colIndex === 1);
+
+      const LEFT_LABELS  = ['F1','F2','F3','F4','F5','F6','F7','F8','F9'];
+      const RIGHT_LABELS = ['F10','F11','F12','F13','F14','F15','F16','F17','TEST'];
+
+      const rows = Math.max(LEFT_LABELS.length, RIGHT_LABELS.length); // 9
+
+      detectedIdsEl.style.cssText = [
+        'position:fixed',
+        'left:0','right:0',
+        'bottom:calc(var(--bar-h,80px) + 4px)',
+        'max-height:45vh',
+        'overflow-y:auto',
+        'background:rgba(10,10,10,0.93)',
+        'color:#fff',
+        'z-index:30',
+        'padding:4px 6px 6px',
+        'border-radius:12px 12px 0 0',
+        'font-size:13px',
+      ].join(';');
+
+      const ampColor = (val) => {
+        if (!val || val === '—') return '#666';
+        if (val.includes('empty'))  return '#555';
+        if (val.includes('2'))      return '#a78bfa';
+        if (val.includes('3'))      return '#c084fc';
+        if (val.includes('5'))      return '#fb923c';
+        if (val.includes('7.5'))    return '#f87171';
+        if (val.includes('10'))     return '#f87171';
+        if (val.includes('15'))     return '#60a5fa';
+        if (val.includes('20'))     return '#facc15';
+        if (val.includes('25'))     return '#4ade80';
+        if (val.includes('30'))     return '#34d399';
+        if (val.includes('52'))     return '#f472b6';
+        return '#e2e8f0';
+      };
+
+      const thStyle  = 'padding:5px 6px; border-bottom:2px solid #444; color:#aaa; font-size:11px; text-align:center;';
+      const lblStyle = 'padding:4px 5px; border-bottom:1px solid #222; color:#777; font-weight:700; font-size:12px; width:38px; text-align:right;';
+      const valStyle = 'padding:4px 8px; border-bottom:1px solid #222; font-weight:600; text-align:left;';
+      const sepStyle = 'width:10px; border-bottom:1px solid #111;';
+
       let html = `
-        <table style="width:100%; border-collapse:collapse; text-align:center;">
-          <thead>
-            <tr>
-              <th style="padding:4px 8px; border-bottom:1px solid #444;">SOL</th>
-              <th style="padding:4px 8px; border-bottom:1px solid #444;">SAĞ</th>
-            </tr>
-          </thead>
+        <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+          <colgroup>
+            <col style="width:38px"><col>
+            <col style="width:10px">
+            <col style="width:38px"><col>
+          </colgroup>
+          <thead><tr>
+            <th colspan="2" style="${thStyle}">◀ SOL (J2)</th>
+            <th style="border-bottom:2px solid #444;"></th>
+            <th colspan="2" style="${thStyle}">SAĞ (J3) ▶</th>
+          </tr></thead>
           <tbody>
       `;
+
       for (let i = 0; i < rows; i++) {
-        html += `
-          <tr>
-            <td style="padding:3px 8px;">${left[i]  ?? '—'}</td>
-            <td style="padding:3px 8px;">${right[i] ?? '—'}</td>
-          </tr>
-        `;
+        const lLabel = LEFT_LABELS[i]  ?? '';
+        const rLabel = RIGHT_LABELS[i] ?? '';
+        const lVal   = leftDets[i]  ? getClassName(leftDets[i].classId)  : (lLabel ? '—' : '');
+        const rVal   = rightDets[i] ? getClassName(rightDets[i].classId) : (rLabel ? '—' : '');
+        html += `<tr>
+          <td style="${lblStyle}">${lLabel}</td>
+          <td style="${valStyle} color:${ampColor(lVal)};">${lVal}</td>
+          <td style="${sepStyle}"></td>
+          <td style="${lblStyle}">${rLabel}</td>
+          <td style="${valStyle} color:${ampColor(rVal)};">${rVal}</td>
+        </tr>`;
       }
+
       html += `</tbody></table>`;
       detectedIdsEl.innerHTML = html;
     } else {

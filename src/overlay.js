@@ -11,7 +11,7 @@ const CLASS_STYLES = {
   5: { color: '#030bfa', label: '30_amp'  },
   6: { color: '#f80808', label: '5_amp'   },
   7: { color: '#5df184', label: '7.5_amp' },
-  8: { color: '#503131', label: 'empty'   },
+  8: { color: '#f4f4f4', label: 'empty'   },
 };
 
 const DEFAULT_STYLE = { color: '#f59e0b', label: '?' };

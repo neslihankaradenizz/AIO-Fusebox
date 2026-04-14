@@ -117,18 +117,17 @@ btnCapture.addEventListener('click', () => {
   capturedCanvas.height = roi.h;
   capturedCanvas.getContext('2d').drawImage(cropped, 0, 0); // ✅ `captured` değil `capturedCanvas`
 
-  snapshot.style.display = 'block';
-  video.style.display    = 'none';
-
-  // snapshot.src async yüklenir — naturalWidth/Height onload'dan sonra hazır olur.
-  // onload beklemeden syncCanvasSize çağrılırsa boyutlar 0 gelir ve canvas bozulur.
+  // snapshot async yüklenir — onload beklenmezse naturalWidth=0 gelir
   snapshot.onload = () => {
     syncCanvasSize(canvas, snapshot);
     clearCanvas(canvas);
     drawRoi(canvas, false);
-    snapshot.onload = null; // tek seferlik
+    snapshot.onload = null;
   };
-  snapshot.src = capturedCanvas.toDataURL('image/jpeg');
+  snapshot.src           = capturedCanvas.toDataURL('image/jpeg');
+  snapshot.style.display = 'block';
+  video.style.display    = 'none';
+
 
   btnCapture.classList.add('hidden');
   btnMatch.classList.remove('hidden');
@@ -149,13 +148,13 @@ btnMatch.addEventListener('click', async () => {
   statusText.textContent = 'Analiz ediliyor…';
 
   try {
-    syncCanvasSize(canvas, snapshot);
+    // capturedCanvas boyutunu doğrudan kullan — snapshot async yüklenmeyi beklemez
+    syncCanvasSize(canvas, capturedCanvas);
 
-    // apturedCanvas zaten ROI — tekrar cropRoi'ye gerek yok
     const cropped = capturedCanvas;
     const roi     = { x: 0, y: 0, w: capturedCanvas.width, h: capturedCanvas.height };
 
-    //  Worker üzerinden inference — UI donmuyor
+    // Her seferinde taze bitmap — önceki workerInfer'a transfer edilmiş olabilir
     const bitmap     = await createImageBitmap(cropped);
     const detections = await workerInfer(bitmap, cropped.width, cropped.height);
 
@@ -180,6 +179,8 @@ btnMatch.addEventListener('click', async () => {
       const rows   = Math.max(left.length, right.length);
 
       // Sadece innerHTML kullan — sonra textContent ile ezme
+      // Tabloyu bottom-bar'ın ustunde gosterme
+      detectedIdsEl.style.cssText = 'position:fixed;left:0;right:0;bottom:calc(var(--bar-h,80px) + 8px);max-height:40vh;overflow-y:auto;background:rgba(0,0,0,0.82);color:#fff;z-index:30;padding:6px 4px;border-radius:10px 10px 0 0';
       let html = `
         <table style="width:100%; border-collapse:collapse; text-align:center;">
           <thead>
@@ -275,7 +276,7 @@ async function init() {
     await startCamera(video);
     syncCanvasSize(canvas, video);
 
-    // ✅ ORT dosyalarını cache'e al
+    // ORT dosyalarını cache'e al
     loadingMsg.textContent = 'ORT yükleniyor…';
     await Promise.all(ORT_FILES.map(async url => {
       const cache = await caches.open(CACHE_NAME);
@@ -284,7 +285,7 @@ async function init() {
         if (res.ok) cache.put(url, res.clone());
         console.log('[Cache] ORT dosyası kaydedildi:', url);
       }
-    })); // ✅ Promise.all burada kapanıyor
+    })); // Promise.all burada kapanıyor
 
     loadingMsg.textContent = 'Model yükleniyor…';
     const modelResponse = await fetchWithCache('https://aoi-fusebox1.neslihan-krdnz53.workers.dev/best_fuseboxV1.onnx');

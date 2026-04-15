@@ -16,8 +16,7 @@ const detectedIdsEl  = document.getElementById('detected-ids');
 const btnCapture     = document.getElementById('btn-capture');
 const btnMatch       = document.getElementById('btn-match');
 const btnRetake      = document.getElementById('btn-retake');
-const resultTable    = document.getElementById('result-table');
-const resultTableBody = document.getElementById('result-table-body');
+
 
 let capturedCanvas = null;
 let previewRunning = false;
@@ -87,6 +86,28 @@ drawerStyle.textContent = `
     background: #1e293b;
     color: #e2e8f0;
   }
+  /* ── DRAWER TABLE ────────────────────────── */
+  #detected-ids table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: clamp(0.72rem, 3vw, 0.82rem);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+  }
+  #detected-ids thead th {
+    padding: 6px 8px;
+    border-bottom: 2px solid rgba(255,255,255,0.10);
+    color: #64748b;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-align: center;
+  }
+  #detected-ids tbody td       { padding: 5px 6px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  #detected-ids tbody td.lbl   { text-align: right; color: #475569; font-weight: 700; font-size: 0.7rem; padding-right: 4px; width: 38px; }
+  #detected-ids tbody td.val   { font-weight: 600; padding-left: 8px; }
+  #detected-ids tbody td.sep   { width: 10px; border-bottom: 1px solid rgba(0,0,0,0.4); background: rgba(255,255,255,0.02); }
 `;
 document.head.appendChild(drawerStyle);
 
@@ -301,7 +322,7 @@ btnMatch.addEventListener('click', async () => {
         return '';
       };
 
-      // Sadece tbody'yi doldur — yapı index.html'de
+      // Tablo satırlarını oluştur
       let rows = '';
       for (let i = 0; i < 9; i++) {
         const lLabel = LEFT_LABELS[i]  ?? '';
@@ -316,14 +337,29 @@ btnMatch.addEventListener('click', async () => {
           <td class="val ${ampClass(rVal)}">${rVal}</td>
         </tr>`;
       }
-      resultTableBody.innerHTML = rows;
-      resultTable.classList.add('visible');
+
+      // Tabloyu drawer içine yerleştir
+      detectedIdsEl.innerHTML = `
+        <div class="drawer-handle"></div>
+        <table>
+          <colgroup>
+            <col style="width:38px"><col>
+            <col style="width:10px">
+            <col style="width:38px"><col>
+          </colgroup>
+          <thead>
+            <tr>
+              <th colspan="2">◀ SOL (J2)</th>
+              <th></th>
+              <th colspan="2">(J3) SAĞ ▶</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>`;
 
       // Drawer butonunu göster — analiz tamamlandı
       btnDrawer.classList.add('visible');
     } else {
-      resultTableBody.innerHTML = '';
-      resultTable.classList.remove('visible');
       detectedIdsEl.innerHTML = '<div class="drawer-handle"></div><p style="padding:16px;color:#666;text-align:center;">Nesne bulunamadı</p>';
       btnDrawer.classList.add('visible');
     }
@@ -357,8 +393,6 @@ btnRetake.addEventListener('click', () => {
   bottomBar.className       = '';
   statusText.textContent    = 'Kamera aktif';
 
-  resultTable.classList.remove('visible');
-  resultTableBody.innerHTML = '';
   closeDrawer();
   btnDrawer.classList.remove('visible');
 

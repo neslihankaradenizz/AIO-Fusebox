@@ -68,7 +68,7 @@ drawerStyle.textContent = `
     display: none;
     width: 100%;
     padding: 11px 14px;
-    background: #0f172a;
+    background: transparent;
     color: #94a3b8;
     border: 1px solid #1e293b;
     border-radius: 10px;
@@ -238,7 +238,7 @@ btnCapture.addEventListener('click', () => {
   capturedCanvas = document.createElement('canvas');
   capturedCanvas.width  = roi.w;
   capturedCanvas.height = roi.h;
-  capturedCanvas.getContext('2d').drawImage(cropped, 0, 0); // ✅ `captured` değil `capturedCanvas`
+  capturedCanvas.getContext('2d').drawImage(cropped, 0, 0); // `captured` değil `capturedCanvas`
 
   // snapshot async yüklenir — onload beklenmezse naturalWidth=0 gelir
   snapshot.onload = () => {
@@ -309,7 +309,6 @@ btnMatch.addEventListener('click', async () => {
       const ampClass = (val) => {
         if (!val || val === '—')        return 'amp-none';
         if (val.includes('empty'))      return 'amp-empty';
-        if (val.includes('52'))         return 'amp-52';
         if (val.includes('30'))         return 'amp-30';
         if (val.includes('25'))         return 'amp-25';
         if (val.includes('20'))         return 'amp-20';
@@ -317,7 +316,6 @@ btnMatch.addEventListener('click', async () => {
         if (val.includes('10'))         return 'amp-10';
         if (val.includes('7'))          return 'amp-7';
         if (val.includes('5'))          return 'amp-5';
-        if (val.includes('3'))          return 'amp-3';
         if (val.includes('2'))          return 'amp-2';
         return '';
       };

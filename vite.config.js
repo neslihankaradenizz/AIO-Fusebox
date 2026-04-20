@@ -33,8 +33,6 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,json}'],
         maximumFileSizeToCacheInBytes: 150 * 1024 * 1024,
-        
-        // ✅ Bu pattern'e uyan URL'leri SW hiç işleme almaz
         ignoreURLParametersMatching: [],
         
         runtimeCaching: [
@@ -46,16 +44,9 @@ export default defineConfig({
               cacheName: 'r2-heavy-assets',
               fetchOptions: { mode: 'cors' },
               expiration: {
-                maxEntries: 15,
+                maxEntries:20,
                 maxAgeSeconds: 60 * 60 * 24 * 90,
               },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/aoi-fusebox1\.neslihan-krdnz53\.workers\.dev\/ort.*$/i,
-            handler: 'NetworkOnly',  // cache'e almaz, direkt geçer
-            options: {
-              fetchOptions: { mode: 'cors' },
             },
           },
         ],

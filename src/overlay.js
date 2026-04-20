@@ -165,33 +165,18 @@ function drawLegend(canvas, ctx) {
 const offscreenFull = document.createElement('canvas');
 const offscreenCrop = document.createElement('canvas');
 
-export function cropRoi(src) {
+/**
+ * Tek kaynak kullanır → hem preprocess hem drawRoi aynı değerleri alır.
+ */
+export function getRoiRect(src) {
   const isVideo = src instanceof HTMLVideoElement;
-  const srcW    = isVideo ? src.videoWidth  : src.width;
-  const srcH    = isVideo ? src.videoHeight : src.height;
+  const srcW    = isVideo ? src.videoWidth  : (src.naturalWidth  || src.width);
+  const srcH    = isVideo ? src.videoHeight : (src.naturalHeight || src.height);
 
-  const roi = {
+  return {
     x: Math.round(srcW * ROI_RATIO.x),
     y: Math.round(srcH * ROI_RATIO.y),
     w: Math.round(srcW * ROI_RATIO.w),
     h: Math.round(srcH * ROI_RATIO.h),
   };
-
-  let srcCanvas;
-  if (isVideo) {
-    offscreenFull.width  = srcW;
-    offscreenFull.height = srcH;
-    offscreenFull.getContext('2d').drawImage(src, 0, 0);
-    srcCanvas = offscreenFull;
-  } else {
-    srcCanvas = src;
-  }
-
-  offscreenCrop.width  = roi.w;
-  offscreenCrop.height = roi.h;
-  offscreenCrop.getContext('2d').drawImage(
-    srcCanvas, roi.x, roi.y, roi.w, roi.h, 0, 0, roi.w, roi.h
-  );
-
-  return { cropped: offscreenCrop, roi };
 }

@@ -181,39 +181,56 @@ const offscreenModel = typeof OffscreenCanvas !== 'undefined'
 
 const offscreenModelCtx = offscreenModel.getContext('2d', { willReadFrequently: true });
 
-export function preprocessCanvas(srcCanvas) {
-  if (!INPUT_SIZE) throw new Error('INPUT_SIZE henüz set edilmedi. loadModel() bekleniyor.');
-  if (offscreenModel.width !== INPUT_SIZE) offscreenModel.width  = INPUT_SIZE;
-  if (offscreenModel.height !== INPUT_SIZE) offscreenModel.height = INPUT_SIZE;
+/**
+ * Kaynaktan (video/canvas) ROI'yi doğrudan 1024×1024 letterbox'a çizer.
+ * Ara kırpma yok → tek dönüşüm → sıfır kayma.
+ *
+ * @param {HTMLVideoElement|HTMLCanvasElement} src
+ * @param {{ x, y, w, h }} roi  — tam kaynak piksel koordinatları
+ * @returns {{ tensor, roi, scale, offsetX, offsetY }}
+ */
 
-  const vw = srcCanvas.width;
-  const vh = srcCanvas.height;
-  const scale = Math.min(INPUT_SIZE / vw, INPUT_SIZE / vh);
-  const dw = Math.round(vw * scale);
-  const dh = Math.round(vh * scale);
-  const dx = (INPUT_SIZE - dw) / 2;
-  const dy = (INPUT_SIZE - dh) / 2;
+export function preprocessRoi(src, roi) {
+  if (!INPUT_SIZE) throw new Error('loadModel() bekleniyor.');
 
-  offscreenModelCtx.fillStyle = '#808080';
-  offscreenModelCtx.fillRect(0, 0, INPUT_SIZE, INPUT_SIZE);
-  offscreenModelCtx.drawImage(srcCanvas, dx, dy, dw, dh);
+  const os = offscreenModel;
+  const ctx = offscreenModelCtx;
 
-  const { data } = offscreenModelCtx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
-  const nPixels  = INPUT_SIZE * INPUT_SIZE;
-  const float32  = new Float32Array(3 * nPixels);
+  if (os.width !== INPUT_SIZE)  os.width  = INPUT_SIZE;
+  if (os.height !== INPUT_SIZE) os.height = INPUT_SIZE;
 
-  for (let i = 0; i < nPixels; i++) {
-    float32[i]              = data[i * 4]     / 255;
-    float32[i + nPixels]    = data[i * 4 + 1] / 255;
-    float32[i + nPixels * 2] = data[i * 4 + 2] / 255;
+  // 1. Letterbox ölçeği — ROI'nin en dar kenarına göre
+  const scale   = Math.min(INPUT_SIZE / roi.w, INPUT_SIZE / roi.h);
+  const dw      = Math.round(roi.w * scale);
+  const dh      = Math.round(roi.h * scale);
+  const offsetX = (INPUT_SIZE - dw) / 2;
+  const offsetY = (INPUT_SIZE - dh) / 2;
+
+  // 2. Gri arka plan + ROI'yi doğrudan hedef canvas'a çiz
+  ctx.fillStyle = '#808080';
+  ctx.fillRect(0, 0, INPUT_SIZE, INPUT_SIZE);
+  ctx.drawImage(src,
+    roi.x, roi.y, roi.w, roi.h,   // kaynak: sadece ROI
+    offsetX, offsetY, dw, dh       // hedef: letterbox içi
+  );
+
+  // 3. Normalize → Float32 NCHW
+  const { data } = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
+  const N        = INPUT_SIZE * INPUT_SIZE;
+  const float32  = new Float32Array(3 * N);
+  for (let i = 0; i < N; i++) {
+    float32[i]         = data[i * 4]     / 255;
+    float32[i + N]     = data[i * 4 + 1] / 255;
+    float32[i + N * 2] = data[i * 4 + 2] / 255;
   }
 
   const global = typeof self !== 'undefined' ? self : window;
   const tensor = new global.ort.Tensor('float32', float32, [1, 3, INPUT_SIZE, INPUT_SIZE]);
-  return { tensor, scale, offsetX: dx, offsetY: dy, scaleX: vw / dw, scaleY: vh / dh };
+
+  return { tensor, roi, scale, offsetX, offsetY };
 }
 
-export function postprocess(outputTensor, srcWidth, srcHeight, meta) {
+export function postprocess(outputTensor, meta) {
   const data = outputTensor.data;
   const dims = outputTensor.dims;
 
@@ -221,16 +238,15 @@ export function postprocess(outputTensor, srcWidth, srcHeight, meta) {
   if (dims[1] < dims[2]) { rows = dims[1]; cols = dims[2]; }
   else                   { rows = dims[2]; cols = dims[1]; }
 
-  const numClasses = rows - 4;
-  const detections = [];
-  const { scale, offsetX, offsetY } = meta;
+  const numClasses            = rows - 4;
+  const { scale, offsetX, offsetY, roi } = meta;
+  const detections            = [];
 
   for (let a = 0; a < cols; a++) {
-    let maxScore = -Infinity;
-    let classId  = -1;
+    let maxScore = -Infinity, classId = -1;
     for (let c = 0; c < numClasses; c++) {
-      const score = data[(4 + c) * cols + a];
-      if (score > maxScore) { maxScore = score; classId = c; }
+      const s = data[(4 + c) * cols + a];
+      if (s > maxScore) { maxScore = s; classId = c; }
     }
     if (maxScore < CONF_THRESH) continue;
 
@@ -239,12 +255,21 @@ export function postprocess(outputTensor, srcWidth, srcHeight, meta) {
     const bw = data[2 * cols + a];
     const bh = data[3 * cols + a];
 
-    const x = ((cx - offsetX) / scale) - bw / scale / 2;
-    const y = ((cy - offsetY) / scale) - bh / scale / 2;
-    const w = bw / scale;
-    const h = bh / scale;
+    // Letterbox → ROI koordinatı
+    const xRoi = (cx - offsetX) / scale - bw / (scale * 2);
+    const yRoi = (cy - offsetY) / scale - bh / (scale * 2);
+    const wRoi = bw / scale;
+    const hRoi = bh / scale;
 
-    detections.push({ classId, x, y, width: w, height: h, confidence: maxScore });
+    // ROI → Full-frame koordinatı (tek adımda)
+    detections.push({
+      classId,
+      x:          xRoi + roi.x,
+      y:          yRoi + roi.y,
+      width:      wRoi,
+      height:     hRoi,
+      confidence: maxScore,
+    });
   }
 
   return nms(detections, IOU_THRESH);

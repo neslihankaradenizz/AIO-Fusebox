@@ -1,6 +1,6 @@
 import { startCamera }                                                         from './camera.js';
 import { loadValidCombinations, validateCombination, sortDetections }          from './combination.js';
-import { syncCanvasSize, clearCanvas, drawRoi, drawDetections, cropRoi, getClassName } from './overlay.js';
+import { syncCanvasSize, clearCanvas, drawRoi, drawDetections, getRoiRect, getClassName } from './overlay.js';
 
 const CACHE_NAME = 'fusebox-v3';
 
@@ -16,7 +16,6 @@ const detectedIdsEl  = document.getElementById('detected-ids');
 const btnCapture     = document.getElementById('btn-capture');
 const btnMatch       = document.getElementById('btn-match');
 const btnRetake      = document.getElementById('btn-retake');
-
 
 let capturedCanvas = null;
 let previewRunning = false;
@@ -198,9 +197,9 @@ function startInferenceLoop() {
     if (!inferBusy && video.readyState >= video.HAVE_ENOUGH_DATA) {
       inferBusy = true;
       try {
-        const { cropped } = cropRoi(video);
+        const roi    = getRoiRect(video);
         const bitmap = await createImageBitmap(cropped);
-        const detections = await workerInfer(bitmap, cropped.width, cropped.height);
+        const detections = await workerInfer(bitmap, roi.w, roi.h);
         lastHadDetections = detections.length > 0;
       } catch {
         lastHadDetections = false;
@@ -233,12 +232,13 @@ btnCapture.addEventListener('click', () => {
   stopPreviewLoop();
 
   // Direkt ROI'yi kes — tam çözünürlüğe gerek yok
-  const { cropped, roi } = cropRoi(video);
-
+  const roi = getRoiRect(video);
   capturedCanvas = document.createElement('canvas');
   capturedCanvas.width  = roi.w;
   capturedCanvas.height = roi.h;
-  capturedCanvas.getContext('2d').drawImage(cropped, 0, 0); // `captured` değil `capturedCanvas`
+  capturedCanvas.getContext('2d').drawImage(
+    video, roi.x, roi.y, roi.w, roi.h, 0, 0, roi.w, roi.h
+  );
 
   // snapshot async yüklenir — onload beklenmezse naturalWidth=0 gelir
   snapshot.onload = () => {

@@ -48,9 +48,10 @@ self.onmessage = async (e) => {
       h: payload.height,
     };
 
-    const meta         = preprocessRoi(offscreen, roi);   // ✅ Doğru çağrı
+    const roi = payload.roi ?? { x: 0, y: 0, w: payload.width, h: payload.height };
+    const meta = preprocessRoi(offscreen, roi);
     const outputTensor = await runInference(meta.tensor);
-    const detections   = postprocess(outputTensor, meta);
+    const detections = postprocess(outputTensor, meta);
 
     self.postMessage({ type: 'result', detections });
   } catch (err) {

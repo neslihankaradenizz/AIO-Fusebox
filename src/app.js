@@ -172,9 +172,14 @@ function workerInfer(imageBitmap, width, height) {
     };
     worker.addEventListener('message', onMsg);
     worker.postMessage(
-      { type: 'infer', payload: { bitmap: imageBitmap, width, height } },
-      [imageBitmap] // zero-copy transfer
-    );
+      { type: 'infer', 
+        payload: { 
+          bitmap,
+          width: video.videoWidth,
+          height: video.videoHeight,
+          roi: getRoiRect(video)
+        } },
+      [bitmap]);
   });
 }
 

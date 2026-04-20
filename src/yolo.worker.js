@@ -34,19 +34,27 @@ self.onmessage = async (e) => {
     }
   }
 
-  if (type === 'infer') {
-    try {
-      const offscreen = new OffscreenCanvas(payload.width, payload.height);
-      offscreen.getContext('2d').drawImage(payload.bitmap, 0, 0);
-      payload.bitmap.close();
+ if (type === 'infer') {
+  try {
+    const offscreen = new OffscreenCanvas(payload.width, payload.height);
+    offscreen.getContext('2d').drawImage(payload.bitmap, 0, 0);
+    payload.bitmap.close();
 
-      const meta         = preprocessCanvas(offscreen);
-      const outputTensor = await runInference(meta.tensor);
-      const detections   = postprocess(outputTensor, payload.width, payload.height, meta);
+    // ROI'yi payload'dan al ya da tam frame kullan
+    const roi = payload.roi ?? {
+      x: 0,
+      y: 0,
+      w: payload.width,
+      h: payload.height,
+    };
 
-      self.postMessage({ type: 'result', detections });
-    } catch (err) {
-      self.postMessage({ type: 'error', message: err.message });
-    }
+    const meta         = preprocessRoi(offscreen, roi);   // ✅ Doğru çağrı
+    const outputTensor = await runInference(meta.tensor);
+    const detections   = postprocess(outputTensor, meta);
+
+    self.postMessage({ type: 'result', detections });
+  } catch (err) {
+    self.postMessage({ type: 'error', message: err.message });
   }
+}
 };

@@ -1,5 +1,5 @@
 // yolo.worker.js
-import { loadModel, runInference, preprocessCanvas, postprocess } from './yolo.js';
+import { loadModel, runInference, preprocessRoi, postprocess } from './yolo.js';
 
 const ORT_BASE = 'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/';
 

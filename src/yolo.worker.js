@@ -29,6 +29,7 @@ self.onmessage = async (e) => {
       await loadModel(payload.modelBuffer);
       self.postMessage({ type: 'loaded' });
     } catch (err) {
+      console.error('[Worker] Model/ORT yükleme hatası:', err.message);
       self.postMessage({ type: 'error', message: err.message });
     }
   }

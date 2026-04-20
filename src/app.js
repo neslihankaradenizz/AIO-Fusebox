@@ -198,7 +198,7 @@ function startInferenceLoop() {
       inferBusy = true;
       try {
         const roi    = getRoiRect(video);
-        const bitmap = await createImageBitmap(cropped);
+        const bitmap = await createImageBitmap(video, roi.x, roi.y, roi.w, roi.h);
         const detections = await workerInfer(bitmap, roi.w, roi.h);
         lastHadDetections = detections.length > 0;
       } catch {
@@ -438,14 +438,40 @@ async function init() {
 
     // ORT dosyalarını cache'e al
     loadingMsg.textContent = 'ORT yükleniyor…';
-    await Promise.all(ORT_FILES.map(async url => {
-      const cache = await caches.open(CACHE_NAME);
-      if (!await cache.match(url)) {
-        const res = await fetch(url);
-        if (res.ok) cache.put(url, res.clone());
-        console.log('[Cache] ORT dosyası kaydedildi:', url);
+    //  YENİ — retry + hata izole, uygulama devam eder
+    async function fetchWithRetry(url, retries = 3, delayMs = 800) {
+      for (let i = 0; i < retries; i++) {
+        try {
+          const res = await fetch(url);
+          if (res.ok) return res;
+          throw new Error(`HTTP ${res.status}`);
+        } catch (err) {
+          if (i < retries - 1) {
+            console.warn(`[Cache] Deneme ${i + 1} başarısız, tekrar: ${url}`, err.message);
+            await new Promise(r => setTimeout(r, delayMs * (i + 1)));
+          } else {
+            console.error(`[Cache] ${retries} denemede indirilemedi, atlanıyor: ${url}`, err.message);
+          }
+        }
       }
-    })); // Promise.all burada kapanıyor
+      return null;
+    }
+
+    // ORT dosyalarını cache'e al — hata olursa atla, worker zaten kendi yükler
+    loadingMsg.textContent = 'ORT yükleniyor…';
+    await Promise.all(ORT_FILES.map(async url => {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        if (await cache.match(url)) return; // zaten cache'de
+        const res = await fetchWithRetry(url);
+        if (res) {
+          cache.put(url, res.clone());
+          console.log('[Cache] ORT dosyası kaydedildi:', url);
+        }
+      } catch (err) {
+        console.warn('[Cache] ORT cache adımı atlandı:', err.message);
+      }
+}));
 
     loadingMsg.textContent = 'Model yükleniyor…';
     const modelResponse = await fetchWithCache('https://aoi-fusebox1.neslihan-krdnz53.workers.dev/best_fuseboxV1.onnx');

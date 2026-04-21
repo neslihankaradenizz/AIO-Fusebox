@@ -1,5 +1,5 @@
 ## YOLOv8 Fusebox Tespiti
-ONNX Runtime Web aracılığıyla tarayıcıda çalışan, tamamen istemci taraflı (client-side) bir YOLOv8 nesne tespiti web uygulamasıdır.
+ONNX Runtime Web aracılığıyla tarayıcıda çalışan, bir YOLOv8 nesne tespiti web uygulamasıdır.
 
 ## Kombinasyon Mantığı
 1. Tespit edilen nesneler, merkez X koordinatlarına göre **soldan → sağa** sıralanır.

@@ -197,18 +197,16 @@ btnMatch.addEventListener('click', async () => {
   statusText.textContent = 'Analiz ediliyor…';
 
   try {
-    // Canvas'ı capturedCanvas boyutuna eşitle
-    syncCanvasSize(canvas, capturedCanvas);
-
     const cropped = capturedCanvas;
     const roi     = { x: 0, y: 0, w: capturedCanvas.width, h: capturedCanvas.height };
 
-    // DÜZELTME 1: Match için nesli burada artır ve workerInfer'a geçir
-    // stopPreviewLoop()'un artırdığı nesil değeri geçerliliğini koruyor,
-    // match çağrısı kendi nesliyle yeni bir "slot" açıyor.
+    // Canvas boyutu zaten capture'da ayarlandı — tekrar syncCanvasSize ÇAĞIRMA.
+    // canvas.width = x atamak canvas içeriğini sıfırlar → inference beklenirken siyah görünür.
+    // Görüntüyü hemen göster, inference sonucu gelince üstüne bbox çiz.
+    canvas.getContext('2d').drawImage(capturedCanvas, 0, 0);
+
     const matchGen = ++inferGeneration;
 
-    // Her seferinde taze bitmap — önceki workerInfer'a transfer edilmiş olabilir
     const bitmap     = await createImageBitmap(cropped);
     const detections = await workerInfer(bitmap, cropped.width, cropped.height, matchGen);
 

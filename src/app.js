@@ -63,8 +63,11 @@ const isLowEnd = (navigator.hardwareConcurrency ?? 4) <= 4 ||
 console.log(`[Perf] ${isLowEnd ? 'Düşük uçlu' : 'Yüksek uçlu'} cihaz`);
 
 function onResize() {
-  const source = video.style.display !== 'none' ? video : snapshot;
-  syncCanvasSize(canvas, source);
+  // Snapshot modunda canvas zaten capturedCanvas boyutunda — resize'da dokunma.
+  // Preview modunda video boyutuna eşitle.
+  if (video.style.display !== 'none') {
+    syncCanvasSize(canvas, video);
+  }
 }
 window.addEventListener('resize', onResize);
 
@@ -166,16 +169,11 @@ btnCapture.addEventListener('click', () => {
     video, roi.x, roi.y, roi.w, roi.h, 0, 0, roi.w, roi.h
   );
 
-  // snapshot async yüklenir — onload beklenmezse naturalWidth=0 gelir
-  snapshot.onload = () => {
-    syncCanvasSize(canvas, snapshot);
-    clearCanvas(canvas);
-    drawRoi(canvas, false);
-    snapshot.onload = null;
-  };
-  snapshot.src           = capturedCanvas.toDataURL('image/jpeg');
-  snapshot.style.display = 'block';
-  video.style.display    = 'none';
+  // Snapshot: canvas'a direkt çiz — tek koordinat uzayı, sıfır kayma, onload yok.
+  video.style.display = 'none';
+  syncCanvasSize(canvas, capturedCanvas);
+  canvas.getContext('2d').drawImage(capturedCanvas, 0, 0);
+  drawRoi(canvas, false);
 
   btnCapture.classList.add('hidden');
   btnMatch.classList.remove('hidden');
@@ -325,7 +323,7 @@ btnMatch.addEventListener('click', async () => {
 
 // --- RETAKE ---
 btnRetake.addEventListener('click', () => {
-  snapshot.style.display = 'none';
+  snapshot.style.display = 'none'; // güvenlik için (varsa hâlâ DOM'da)
   video.style.display    = 'block';
   capturedCanvas         = null;
   lastHadDetections      = false;

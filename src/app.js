@@ -73,6 +73,10 @@ let loopTimer         = null;
 let inferBusy         = false; // worker meşgulken tekrar gönderme
 
 // --- Worker'a inference gönder, Promise döner ---
+// DÜZELTME 1: workerInfer artık inferGeneration'ı artırmıyor.
+// Bunun yerine çağıran kod kendi "beklenen nesil" değerini geçiyor.
+// Bu sayede stopPreviewLoop()'un yaptığı inferGeneration++ match sırasında
+// race condition oluşturmuyor.
 function workerInfer(imageBitmap, width, height, expectedGen) {
   return new Promise((resolve, reject) => {
     const onMsg = (e) => {
@@ -216,6 +220,11 @@ btnMatch.addEventListener('click', async () => {
     clearCanvas(canvas);
 
     // Match modunda canvas zaten ROI crop'unun kendisi — tüm canvas = ROI.
+    // drawRoi() ise canvas boyutunu tam video gibi kabul edip içine küçük bir
+    // pencere çiziyor (canvas.width*0.1 offset vs.), bu da clearRect'i yanlış
+    // yere götürüyor ve deteksiyon kutuları kayıyor.
+    // Bu yüzden burada drawRoi kullanmıyoruz; sadece hafif bir karartma ve
+    // renkli border ile "çerçeve" efektini kendimiz çiziyoruz.
     (function drawMatchOverlay() {
       const ctx   = canvas.getContext('2d');
       const color = hasDetections ? '#ef4444' : '#ffffff';
@@ -340,6 +349,9 @@ btnRetake.addEventListener('click', () => {
 
 // --- MODEL CACHE ---
 // Ana sayfa artık modeli indirmiyor — URL'yi worker'a gönderir.
+// Worker kendi fetch eder, cache API'yi de kendisi kullanır.
+// Bu sayede büyük ArrayBuffer ana sayfa RAM'ini hiç doldurmaz.
+
 // --- INIT ---
 const ORT_FILES = [
   'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/ort.wasm.min.js',

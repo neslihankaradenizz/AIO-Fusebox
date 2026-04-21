@@ -198,9 +198,12 @@ export function preprocessRoi(src, roi) {
   if (os.height !== INPUT_SIZE) os.height = INPUT_SIZE;
 
   // 1. Letterbox olcegi — ROI'nin en dar kenarına gore
+  // Math.round KULLANILMIYOR: dw/dh yuvarlanırsa drawImage ile postprocess
+  // arasında sub-pixel tutarsızlığı oluşur ve kutular kayar.
+  // Aynı scale değeri hem drawImage hem postprocess tarafından kullanılır.
   const scale   = Math.min(INPUT_SIZE / roi.w, INPUT_SIZE / roi.h);
-  const dw      = Math.round(roi.w * scale);
-  const dh      = Math.round(roi.h * scale);
+  const dw      = roi.w * scale;   // float — drawImage ondalıklı değeri kabul eder
+  const dh      = roi.h * scale;   // float
   const offsetX = (INPUT_SIZE - dw) / 2;
   const offsetY = (INPUT_SIZE - dh) / 2;
 

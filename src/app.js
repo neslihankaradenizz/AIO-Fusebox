@@ -68,9 +68,9 @@ drawerStyle.textContent = `
     display: none;
     width: 100%;
     padding: 11px 14px;
-    background: transparent;
-    color: #94a3b8;
-    border: 1px solid #1e293b;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    border: none ;
     border-radius: 10px;
     font-size: 14px;
     font-weight: 600;
@@ -83,7 +83,7 @@ drawerStyle.textContent = `
     display: block;
   }
   #btn-drawer:active {
-    background: #1e293b;
+    background: rgba(255,255,255,0.2);
     color: #e2e8f0;
   }
   /* ── DRAWER TABLE ────────────────────────── */

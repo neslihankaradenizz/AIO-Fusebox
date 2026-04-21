@@ -172,8 +172,9 @@ btnCapture.addEventListener('click', () => {
   // Snapshot: canvas'a direkt çiz — tek koordinat uzayı, sıfır kayma, onload yok.
   video.style.display = 'none';
   syncCanvasSize(canvas, capturedCanvas);
+  // Canvas zaten ROI kırpmasının kendisi — drawRoi() çağırma,
+  // karartma + yanlış pencere açılır. Sadece görüntüyü göster.
   canvas.getContext('2d').drawImage(capturedCanvas, 0, 0);
-  drawRoi(canvas, false);
 
   btnCapture.classList.add('hidden');
   btnMatch.classList.remove('hidden');
@@ -215,28 +216,18 @@ btnMatch.addEventListener('click', async () => {
 
     const hasDetections = detections.length > 0;
 
-    clearCanvas(canvas);
+    // Görüntüyü yeniden çiz — bbox'lar bunun üstüne gelecek
+    canvas.getContext('2d').drawImage(capturedCanvas, 0, 0);
 
-    // Match modunda canvas zaten ROI crop'unun kendisi — tüm canvas = ROI.
-    // drawRoi() ise canvas boyutunu tam video gibi kabul edip içine küçük bir
-    // pencere çiziyor (canvas.width*0.1 offset vs.), bu da clearRect'i yanlış
-    // yere götürüyor ve deteksiyon kutuları kayıyor.
-    // Bu yüzden burada drawRoi kullanmıyoruz; sadece hafif bir karartma ve
-    // renkli border ile "çerçeve" efektini kendimiz çiziyoruz.
+    // Kenar border: tespit varsa kırmızı, yoksa beyaz
     (function drawMatchOverlay() {
       const ctx   = canvas.getContext('2d');
       const color = hasDetections ? '#ef4444' : '#ffffff';
-      // Hafif karartma — deteksiyonları ön plana çıkarır
-      ctx.fillStyle = 'rgba(0,0,0,0.18)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      // Canvas kenarına renkli border
       ctx.strokeStyle = color;
       ctx.lineWidth   = 6;
       ctx.strokeRect(3, 3, canvas.width - 6, canvas.height - 6);
     })();
 
-    // source olarak capturedCanvas geçiyoruz: deteksiyonlar ve canvas aynı
-    // koordinat uzayında (her ikisi de ROI crop boyutunda) → scaleX/Y = 1.0
     drawDetections(canvas, capturedCanvas, detections, { x: 0, y: 0 });
 
     const classIds = detections.map(d => d.classId);

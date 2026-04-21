@@ -26,8 +26,47 @@ self.onmessage = async (e) => {
   if (type === 'load') {
     try {
       await loadOrt();
-      await loadModel(payload.modelBuffer);
+
+      // Ana sayfa  URL gönderiyor
+      const CACHE_NAME = 'fusebox-v3';
+      const CACHE_KEY  = 'best_fuseboxV1.onnx';
+      const modelUrl   = payload.modelUrl;
+
+      let modelBuffer;
+
+      // 1. Cache'e bak
+      try {
+        const cache  = await caches.open(CACHE_NAME);
+        const cached = await cache.match(CACHE_KEY);
+        if (cached) {
+          console.log('[Worker] Model cache\'den yükleniyor…');
+          self.postMessage({ type: 'progress', message: 'Model cache\'den yükleniyor…' });
+          modelBuffer = await cached.arrayBuffer();
+        }
+      } catch { /* cache API yoksa atla */ }
+
+      // 2. Cache'de yoksa indir
+      if (!modelBuffer) {
+        console.log('[Worker] Model indiriliyor…');
+        self.postMessage({ type: 'progress', message: 'Model indiriliyor… (ilk açılış, bekleyin)' });
+
+        const response = await fetch(modelUrl);
+        if (!response.ok) throw new Error(`Model indirilemedi: HTTP ${response.status}`);
+
+        // Cache'e kaydet 
+        try {
+          const cache = await caches.open(CACHE_NAME);
+          cache.put(CACHE_KEY, response.clone());
+          console.log('[Worker] Model cache\'e kaydedildi');
+        } catch { /* cache yazma basarisiz*/ }
+
+        modelBuffer = await response.arrayBuffer();
+      }
+
+      self.postMessage({ type: 'progress', message: 'Model başlatılıyor…' });
+      await loadModel(modelBuffer);
       self.postMessage({ type: 'loaded' });
+
     } catch (err) {
       console.error('[Worker] Model/ORT yükleme hatası:', err.message);
       self.postMessage({ type: 'error', message: err.message });

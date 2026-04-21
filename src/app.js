@@ -17,10 +17,10 @@ const btnCapture     = document.getElementById('btn-capture');
 const btnMatch       = document.getElementById('btn-match');
 const btnRetake      = document.getElementById('btn-retake');
 
-let capturedCanvas = null;
-let previewRunning = false;
-let worker         = null; // worker global — hem preview hem match kullanır
-let inferGeneration = 0; 
+let capturedCanvas  = null;
+let previewRunning  = false;
+let worker          = null;  // worker global — hem preview hem match kullanır
+let inferGeneration = 0;     // stale sonuçları elemek için nesil sayacı
 
 // --- DRAWER KURULUMU ---
 // CSS enjeksiyonu
@@ -67,18 +67,17 @@ drawerStyle.textContent = `
   #btn-drawer {
     display: none;
     width: 100%;
-    padding: clamp(10px, 2.5vw, 14px);
-    background: rgba(255,255,255,0.12);
-    color: #fff;
-    border: none;
-    border-radius: 14px;
-    font-size: clamp(0.85rem, 3.8vw, 1rem);
-    font-weight: 700;
+    padding: 11px 14px;
+    background: transparent;
+    color: #94a3b8;
+    border: 1px solid #1e293b;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
-    margin-top: 0;
-    letter-spacing: 0.03em;
-    transition: opacity 0.15s, transform 0.1s;
-    touch-action: manipulation;
+    margin-top: 6px;
+    letter-spacing: 0.02em;
+    transition: background 0.2s, color 0.2s;
   }
   #btn-drawer.visible {
     display: block;
@@ -117,18 +116,18 @@ const backdrop = document.createElement('div');
 backdrop.id = 'drawer-backdrop';
 document.body.appendChild(backdrop);
 
-// Drawer handle 
+// Drawer handle (detectedIdsEl içine ilk çocuk olarak eklenir)
 const drawerHandle = document.createElement('div');
 drawerHandle.className = 'drawer-handle';
 detectedIdsEl.prepend(drawerHandle);
 
-// TESPİT TABLOSU butonu 
+// TESPİT TABLOSU butonu — bottomBar'a eklenir
 const btnDrawer = document.createElement('button');
 btnDrawer.id = 'btn-drawer';
 btnDrawer.textContent = '📋 TESPİT TABLOSU';
 bottomBar.appendChild(btnDrawer);
 
-// Drawer aç/kapat 
+// Drawer aç/kapat yardımcıları
 function openDrawer() {
   detectedIdsEl.classList.add('drawer-open');
   backdrop.classList.add('visible');
@@ -158,17 +157,16 @@ window.addEventListener('resize', onResize);
 
 let lastHadDetections = false;
 let loopTimer         = null;
-let inferBusy         = false; // worker mesgulken tekrar gonderme
+let inferBusy         = false; // worker meşgulken tekrar gönderme
 
 // --- Worker'a inference gönder, Promise döner ---
 function workerInfer(imageBitmap, width, height) {
-  const myGen = ++inferGeneration; 
+  const myGen = ++inferGeneration;
 
   return new Promise((resolve, reject) => {
     const onMsg = (e) => {
       if (e.data.type === 'result') {
         worker.removeEventListener('message', onMsg);
-        // Stale sonuclarıi yoksay baska bir istek basladiysa bu sonuc eskidir
         if (myGen === inferGeneration) resolve(e.data.detections);
       } else if (e.data.type === 'error') {
         worker.removeEventListener('message', onMsg);
@@ -176,15 +174,14 @@ function workerInfer(imageBitmap, width, height) {
       }
     };
     worker.addEventListener('message', onMsg);
-
     worker.postMessage(
       { type: 'infer', payload: { bitmap: imageBitmap, width, height } },
-      [imageBitmap] // Transferable → zero-copy
+      [imageBitmap]
     );
   });
 }
 
-// UI loop — sadece cizim, rAF ile 60fps
+// UI loop — sadece çizim, rAF ile 60fps
 function startUILoop() {
   function uiLoop() {
     if (!previewRunning) return;
@@ -195,7 +192,7 @@ function startUILoop() {
   requestAnimationFrame(uiLoop);
 }
 
-// Inference loop — worker uzerinden, dusuk FPS
+// Inference loop — worker üzerinden, düşük FPS
 function startInferenceLoop() {
   async function inferLoop() {
     if (!previewRunning) return;
@@ -238,7 +235,7 @@ function stopPreviewLoop() {
 btnCapture.addEventListener('click', () => {
   stopPreviewLoop();
 
-  // Direkt ROI'yi kes
+  // Direkt ROI'yi kes — tam çözünürlüğe gerek yok
   const roi = getRoiRect(video);
   capturedCanvas = document.createElement('canvas');
   capturedCanvas.width  = roi.w;
@@ -247,7 +244,7 @@ btnCapture.addEventListener('click', () => {
     video, roi.x, roi.y, roi.w, roi.h, 0, 0, roi.w, roi.h
   );
 
-  // snapshot async yuklenir — onload beklenmezse naturalWidth=0 gelir
+  // snapshot async yüklenir — onload beklenmezse naturalWidth=0 gelir
   snapshot.onload = () => {
     syncCanvasSize(canvas, snapshot);
     clearCanvas(canvas);
@@ -280,13 +277,13 @@ btnMatch.addEventListener('click', async () => {
   statusText.textContent = 'Analiz ediliyor…';
 
   try {
-    // capturedCanvas boyutunu dogrudan kullan
+    // capturedCanvas boyutunu doğrudan kullan — snapshot async yüklenmeyi beklemez
     syncCanvasSize(canvas, capturedCanvas);
 
     const cropped = capturedCanvas;
     const roi     = { x: 0, y: 0, w: capturedCanvas.width, h: capturedCanvas.height };
 
-    // Her seferinde taze bitmap 
+    // Her seferinde taze bitmap — önceki workerInfer'a transfer edilmiş olabilir
     const bitmap     = await createImageBitmap(cropped);
     const detections = await workerInfer(bitmap, cropped.width, cropped.height);
 
@@ -327,7 +324,7 @@ btnMatch.addEventListener('click', async () => {
         return '';
       };
 
-      // Tablo satırlarını olusturma
+      // Tablo satırlarını oluştur
       let rows = '';
       for (let i = 0; i < 9; i++) {
         const lLabel = LEFT_LABELS[i]  ?? '';
@@ -343,7 +340,7 @@ btnMatch.addEventListener('click', async () => {
         </tr>`;
       }
 
-      // Tabloyu drawer icine yerlestirme
+      // Tabloyu drawer içine yerleştir
       detectedIdsEl.innerHTML = `
         <div class="drawer-handle"></div>
         <table>
@@ -362,7 +359,7 @@ btnMatch.addEventListener('click', async () => {
           <tbody>${rows}</tbody>
         </table>`;
 
-      // Drawer butonunu goster — analiz tamamlandi
+      // Drawer butonunu göster — analiz tamamlandı
       btnDrawer.classList.add('visible');
     } else {
       detectedIdsEl.innerHTML = '<div class="drawer-handle"></div><p style="padding:16px;color:#666;text-align:center;">Nesne bulunamadı</p>';
@@ -405,27 +402,9 @@ btnRetake.addEventListener('click', () => {
 });
 
 // --- MODEL CACHE ---
-async function fetchWithCache(url) {
-  try {
-    const cache     = await caches.open(CACHE_NAME);
-    const CACHE_KEY = 'best_fuseboxV1.onnx';
-    const cached    = await cache.match(CACHE_KEY);
-    if (cached) {
-      console.log('[Model] Cache\'den yüklendi');
-      return cached;
-    }
-    console.log('[Model] İndiriliyor...');
-    const response = await fetch(url);
-    if (response.ok) {
-      cache.put(CACHE_KEY, response.clone());
-      console.log('[Model] Cache\'e kaydedildi');
-    }
-    return response;
-  } catch (e) {
-    console.warn('[Model] Cache hatası:', e.message);
-    return fetch(url);
-  }
-}
+// Ana sayfa artık modeli indirmiyor — URL'yi worker'a gönderir.
+// Worker kendi fetch eder, cache API'yi de kendisi kullanır.
+// Bu sayede büyük ArrayBuffer ana sayfa RAM'ini hiç doldurmaz.
 
 // --- INIT ---
 const ORT_FILES = [
@@ -443,9 +422,6 @@ async function init() {
     await startCamera(video);
     syncCanvasSize(canvas, video);
 
-    // ORT dosyalarını cache'e al
-    loadingMsg.textContent = 'ORT yükleniyor…';
-    //  YENİ — retry + hata izole, uygulama devam eder
     async function fetchWithRetry(url, retries = 3, delayMs = 800) {
       for (let i = 0; i < retries; i++) {
         try {
@@ -468,8 +444,8 @@ async function init() {
     loadingMsg.textContent = 'ORT yükleniyor…';
     await Promise.all(ORT_FILES.map(async url => {
       try {
-        const cache = await caches.open(CACHE_NAME);
-        if (await cache.match(url)) return; //  cache'de
+        const cache = await caches.open('fusebox-v3');
+        if (await cache.match(url)) return;
         const res = await fetchWithRetry(url);
         if (res) {
           cache.put(url, res.clone());
@@ -478,22 +454,27 @@ async function init() {
       } catch (err) {
         console.warn('[Cache] ORT cache adımı atlandı:', err.message);
       }
-}));
+    }));
 
+    // Worker'ı başlat — modeli worker'ın kendisi indirecek
     loadingMsg.textContent = 'Model yükleniyor…';
-    const modelResponse = await fetchWithCache('https://aoi-fusebox1.neslihan-krdnz53.workers.dev/best_fuseboxV1.onnx');
-    const modelBuffer   = await modelResponse.arrayBuffer();
+    const MODEL_URL = 'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/best_fuseboxV1.onnx';
 
     worker = new Worker(new URL('./yolo.worker.js', import.meta.url), { type: 'module' });
-    worker.postMessage(
-      { type: 'load', payload: { modelBuffer: modelBuffer.slice(0) } }
-    );
+
+    // Sadece URL gönder — buffer transfer yok, ana sayfa RAM'i dolmuyor
+    worker.postMessage({ type: 'load', payload: { modelUrl: MODEL_URL } });
 
     await new Promise((resolve, reject) => {
       worker.addEventListener('message', (e) => {
         if (e.data.type === 'loaded') resolve();
+        if (e.data.type === 'progress') loadingMsg.textContent = e.data.message;
         if (e.data.type === 'error')  reject(new Error(e.data.message));
-      }, { once: true });
+      }, { once: false, signal: AbortSignal.timeout(120_000) });
+      // 2 dakika timeout — yavaş mobil ağ için
+    }).catch(err => {
+      if (err.name === 'TimeoutError') throw new Error('Model yüklenemedi: bağlantı zaman aşımı. Sayfayı yenileyin.');
+      throw err;
     });
 
     loadingOverlay.classList.add('hidden');

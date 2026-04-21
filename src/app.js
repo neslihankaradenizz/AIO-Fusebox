@@ -20,6 +20,7 @@ const btnRetake      = document.getElementById('btn-retake');
 let capturedCanvas = null;
 let previewRunning = false;
 let worker         = null; // worker global — hem preview hem match kullanır
+let inferGeneration = 0; 
 
 // --- DRAWER KURULUMU ---
 // CSS enjeksiyonu

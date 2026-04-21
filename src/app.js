@@ -116,18 +116,18 @@ const backdrop = document.createElement('div');
 backdrop.id = 'drawer-backdrop';
 document.body.appendChild(backdrop);
 
-// Drawer handle (detectedIdsEl içine ilk çocuk olarak eklenir)
+// Drawer handle 
 const drawerHandle = document.createElement('div');
 drawerHandle.className = 'drawer-handle';
 detectedIdsEl.prepend(drawerHandle);
 
-// TESPİT TABLOSU butonu — bottomBar'a eklenir
+// TESPİT TABLOSU butonu 
 const btnDrawer = document.createElement('button');
 btnDrawer.id = 'btn-drawer';
 btnDrawer.textContent = '📋 TESPİT TABLOSU';
 bottomBar.appendChild(btnDrawer);
 
-// Drawer aç/kapat yardımcıları
+// Drawer aç/kapat 
 function openDrawer() {
   detectedIdsEl.classList.add('drawer-open');
   backdrop.classList.add('visible');
@@ -157,36 +157,33 @@ window.addEventListener('resize', onResize);
 
 let lastHadDetections = false;
 let loopTimer         = null;
-let inferBusy         = false; // worker meşgulken tekrar gönderme
+let inferBusy         = false; // worker mesgulken tekrar gonderme
 
 // --- Worker'a inference gönder, Promise döner ---
 function workerInfer(imageBitmap, width, height) {
+  const myGen = ++inferGeneration; 
+
   return new Promise((resolve, reject) => {
     const onMsg = (e) => {
       if (e.data.type === 'result') {
         worker.removeEventListener('message', onMsg);
-        resolve(e.data.detections);
+        // Stale sonuclarıi yoksay baska bir istek basladiysa bu sonuc eskidir
+        if (myGen === inferGeneration) resolve(e.data.detections);
       } else if (e.data.type === 'error') {
         worker.removeEventListener('message', onMsg);
-        reject(new Error(e.data.message));
+        if (myGen === inferGeneration) reject(new Error(e.data.message));
       }
     };
     worker.addEventListener('message', onMsg);
-    
+
     worker.postMessage(
-     { type: 'infer', 
-        payload: { 
-          bitmap:imageBitmap,
-          width: video.videoWidth,
-          height: video.videoHeight,
-          roi: getRoiRect(video)
-        } },
-   [imageBitmap]); 
-  
+      { type: 'infer', payload: { bitmap: imageBitmap, width, height } },
+      [imageBitmap] // Transferable → zero-copy
+    );
   });
 }
 
-// UI loop — sadece çizim, rAF ile 60fps
+// UI loop — sadece cizim, rAF ile 60fps
 function startUILoop() {
   function uiLoop() {
     if (!previewRunning) return;
@@ -197,7 +194,7 @@ function startUILoop() {
   requestAnimationFrame(uiLoop);
 }
 
-// Inference loop — worker üzerinden, düşük FPS
+// Inference loop — worker uzerinden, dusuk FPS
 function startInferenceLoop() {
   async function inferLoop() {
     if (!previewRunning) return;
@@ -229,6 +226,7 @@ function startPreviewLoop() {
 
 function stopPreviewLoop() {
   previewRunning = false;
+  inferGeneration++;
   if (loopTimer !== null) {
     clearTimeout(loopTimer);
     loopTimer = null;
@@ -239,7 +237,7 @@ function stopPreviewLoop() {
 btnCapture.addEventListener('click', () => {
   stopPreviewLoop();
 
-  // Direkt ROI'yi kes — tam çözünürlüğe gerek yok
+  // Direkt ROI'yi kes
   const roi = getRoiRect(video);
   capturedCanvas = document.createElement('canvas');
   capturedCanvas.width  = roi.w;
@@ -248,7 +246,7 @@ btnCapture.addEventListener('click', () => {
     video, roi.x, roi.y, roi.w, roi.h, 0, 0, roi.w, roi.h
   );
 
-  // snapshot async yüklenir — onload beklenmezse naturalWidth=0 gelir
+  // snapshot async yuklenir — onload beklenmezse naturalWidth=0 gelir
   snapshot.onload = () => {
     syncCanvasSize(canvas, snapshot);
     clearCanvas(canvas);
@@ -281,13 +279,13 @@ btnMatch.addEventListener('click', async () => {
   statusText.textContent = 'Analiz ediliyor…';
 
   try {
-    // capturedCanvas boyutunu doğrudan kullan — snapshot async yüklenmeyi beklemez
+    // capturedCanvas boyutunu dogrudan kullan
     syncCanvasSize(canvas, capturedCanvas);
 
     const cropped = capturedCanvas;
     const roi     = { x: 0, y: 0, w: capturedCanvas.width, h: capturedCanvas.height };
 
-    // Her seferinde taze bitmap — önceki workerInfer'a transfer edilmiş olabilir
+    // Her seferinde taze bitmap 
     const bitmap     = await createImageBitmap(cropped);
     const detections = await workerInfer(bitmap, cropped.width, cropped.height);
 
@@ -328,7 +326,7 @@ btnMatch.addEventListener('click', async () => {
         return '';
       };
 
-      // Tablo satırlarını oluştur
+      // Tablo satırlarını olusturma
       let rows = '';
       for (let i = 0; i < 9; i++) {
         const lLabel = LEFT_LABELS[i]  ?? '';
@@ -344,7 +342,7 @@ btnMatch.addEventListener('click', async () => {
         </tr>`;
       }
 
-      // Tabloyu drawer içine yerleştir
+      // Tabloyu drawer icine yerlestirme
       detectedIdsEl.innerHTML = `
         <div class="drawer-handle"></div>
         <table>
@@ -363,7 +361,7 @@ btnMatch.addEventListener('click', async () => {
           <tbody>${rows}</tbody>
         </table>`;
 
-      // Drawer butonunu göster — analiz tamamlandı
+      // Drawer butonunu goster — analiz tamamlandi
       btnDrawer.classList.add('visible');
     } else {
       detectedIdsEl.innerHTML = '<div class="drawer-handle"></div><p style="padding:16px;color:#666;text-align:center;">Nesne bulunamadı</p>';
@@ -470,7 +468,7 @@ async function init() {
     await Promise.all(ORT_FILES.map(async url => {
       try {
         const cache = await caches.open(CACHE_NAME);
-        if (await cache.match(url)) return; // zaten cache'de
+        if (await cache.match(url)) return; //  cache'de
         const res = await fetchWithRetry(url);
         if (res) {
           cache.put(url, res.clone());

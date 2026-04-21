@@ -19,27 +19,28 @@ const btnRetake      = document.getElementById('btn-retake');
 
 let capturedCanvas  = null;
 let previewRunning  = false;
-let worker          = null;  // worker global — hem preview hem match kullanir
-let inferGeneration = 0;     // stale sonuclar, elemek için nesil sayaci
+let worker          = null;  // worker global — hem preview hem match kullanır
+let inferGeneration = 0;     // stale sonuçları elemek için nesil sayacı
 
 // --- DRAWER KURULUMU ---
+
 // Backdrop elementi
 const backdrop = document.createElement('div');
 backdrop.id = 'drawer-backdrop';
 document.body.appendChild(backdrop);
 
-// Drawer handle 
+// Drawer handle (detectedIdsEl içine ilk çocuk olarak eklenir)
 const drawerHandle = document.createElement('div');
 drawerHandle.className = 'drawer-handle';
 detectedIdsEl.prepend(drawerHandle);
 
-// TESPİT TABLOSU butonu 
+// TESPİT TABLOSU butonu — bottomBar'a eklenir
 const btnDrawer = document.createElement('button');
 btnDrawer.id = 'btn-drawer';
 btnDrawer.textContent = '📋 TESPİT TABLOSU';
 bottomBar.appendChild(btnDrawer);
 
-// Drawer aç/kapat 
+// Drawer aç/kapat yardımcıları
 function openDrawer() {
   detectedIdsEl.classList.add('drawer-open');
   backdrop.classList.add('visible');
@@ -69,7 +70,7 @@ window.addEventListener('resize', onResize);
 
 let lastHadDetections = false;
 let loopTimer         = null;
-let inferBusy         = false; // worker mesgulken tekrar gönderme
+let inferBusy         = false; // worker meşgulken tekrar gönderme
 
 // --- Worker'a inference gönder, Promise döner ---
 function workerInfer(imageBitmap, width, height, expectedGen) {
@@ -77,9 +78,9 @@ function workerInfer(imageBitmap, width, height, expectedGen) {
     const onMsg = (e) => {
       if (e.data.type === 'result') {
         worker.removeEventListener('message', onMsg);
-        // Sadece bu cagri icin beklenen nesil hâlâ gecerliyse resolve et
+        // Sadece bu çağrı için beklenen nesil hâlâ geçerliyse resolve et
         if (expectedGen === inferGeneration) resolve(e.data.detections);
-        else resolve([]); // stale — bos dizi dondurur
+        else resolve([]); // stale — boş dizi döndür, hata değil
       } else if (e.data.type === 'error') {
         worker.removeEventListener('message', onMsg);
         if (expectedGen === inferGeneration) reject(new Error(e.data.message));
@@ -93,7 +94,7 @@ function workerInfer(imageBitmap, width, height, expectedGen) {
   });
 }
 
-// UI loop — sadece cizim, rAF ile 60fps
+// UI loop — sadece çizim, rAF ile 60fps
 function startUILoop() {
   function uiLoop() {
     if (!previewRunning) return;
@@ -104,14 +105,14 @@ function startUILoop() {
   requestAnimationFrame(uiLoop);
 }
 
-// Inference loop — worker uzerinden, dusuk FPS
+// Inference loop — worker üzerinden, düşük FPS
 function startInferenceLoop() {
   async function inferLoop() {
     if (!previewRunning) return;
 
     if (!inferBusy && video.readyState >= video.HAVE_ENOUGH_DATA) {
       inferBusy = true;
-      // Nesli burada okur
+      // Nesli burada oku — workerInfer içinde artırma yok artık
       const myGen = ++inferGeneration;
       try {
         const roi    = getRoiRect(video);
@@ -140,7 +141,7 @@ function startPreviewLoop() {
 
 function stopPreviewLoop() {
   previewRunning = false;
-  // inferGeneration'ı artirma
+  // inferGeneration'ı burada artırıyoruz — uçuştaki preview inference'larını iptal eder
   inferGeneration++;
   if (loopTimer !== null) {
     clearTimeout(loopTimer);
@@ -152,7 +153,7 @@ function stopPreviewLoop() {
 btnCapture.addEventListener('click', () => {
   stopPreviewLoop();
 
-  // Direkt ROI'yi keser
+  // Direkt ROI'yi kes — tam çözünürlüğe gerek yok
   const roi = getRoiRect(video);
   capturedCanvas = document.createElement('canvas');
   capturedCanvas.width  = roi.w;
@@ -161,7 +162,7 @@ btnCapture.addEventListener('click', () => {
     video, roi.x, roi.y, roi.w, roi.h, 0, 0, roi.w, roi.h
   );
 
-  // snapshot async yuklenir — onload beklenmezse naturalWidth=0 gelir
+  // snapshot async yüklenir — onload beklenmezse naturalWidth=0 gelir
   snapshot.onload = () => {
     syncCanvasSize(canvas, snapshot);
     clearCanvas(canvas);
@@ -193,14 +194,18 @@ btnMatch.addEventListener('click', async () => {
   statusText.textContent = 'Analiz ediliyor…';
 
   try {
-    // Canvas'ı capturedCanvas boyutuna esitle
+    // Canvas'ı capturedCanvas boyutuna eşitle
     syncCanvasSize(canvas, capturedCanvas);
 
     const cropped = capturedCanvas;
     const roi     = { x: 0, y: 0, w: capturedCanvas.width, h: capturedCanvas.height };
+
+    // DÜZELTME 1: Match için nesli burada artır ve workerInfer'a geçir
+    // stopPreviewLoop()'un artırdığı nesil değeri geçerliliğini koruyor,
+    // match çağrısı kendi nesliyle yeni bir "slot" açıyor.
     const matchGen = ++inferGeneration;
 
-    // Her seferinde taze bitmap
+    // Her seferinde taze bitmap — önceki workerInfer'a transfer edilmiş olabilir
     const bitmap     = await createImageBitmap(cropped);
     const detections = await workerInfer(bitmap, cropped.width, cropped.height, matchGen);
 
@@ -209,7 +214,22 @@ btnMatch.addEventListener('click', async () => {
     const hasDetections = detections.length > 0;
 
     clearCanvas(canvas);
-    drawRoi(canvas, hasDetections);
+
+    // Match modunda canvas zaten ROI crop'unun kendisi — tüm canvas = ROI.
+    (function drawMatchOverlay() {
+      const ctx   = canvas.getContext('2d');
+      const color = hasDetections ? '#ef4444' : '#ffffff';
+      // Hafif karartma — deteksiyonları ön plana çıkarır
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Canvas kenarına renkli border
+      ctx.strokeStyle = color;
+      ctx.lineWidth   = 6;
+      ctx.strokeRect(3, 3, canvas.width - 6, canvas.height - 6);
+    })();
+
+    // source olarak capturedCanvas geçiyoruz: deteksiyonlar ve canvas aynı
+    // koordinat uzayında (her ikisi de ROI crop boyutunda) → scaleX/Y = 1.0
     drawDetections(canvas, capturedCanvas, detections, { x: 0, y: 0 });
 
     const classIds = detections.map(d => d.classId);
@@ -226,7 +246,7 @@ btnMatch.addEventListener('click', async () => {
       const LEFT_LABELS  = ['F1','F2','F3','F4','F5','F6','F7','F8','F9'];
       const RIGHT_LABELS = ['F10','F11','F12','F13','F14','F15','F16','F17','TEST'];
 
-      // Amp degerine gore CSS sinifi
+      // Amp değerine göre CSS sınıfı
       const ampClass = (val) => {
         if (!val || val === '—')        return 'amp-none';
         if (val.includes('empty'))      return 'amp-empty';
@@ -241,7 +261,7 @@ btnMatch.addEventListener('click', async () => {
         return '';
       };
 
-      // Tablo satirlarini olusturma
+      // Tablo satırlarını oluştur
       let rows = '';
       for (let i = 0; i < 9; i++) {
         const lLabel = LEFT_LABELS[i]  ?? '';
@@ -257,7 +277,7 @@ btnMatch.addEventListener('click', async () => {
         </tr>`;
       }
 
-      // Tabloyu drawer icine yerlestir
+      // Tabloyu drawer içine yerleştir
       detectedIdsEl.innerHTML = `
         <div class="drawer-handle"></div>
         <table>
@@ -276,7 +296,7 @@ btnMatch.addEventListener('click', async () => {
           <tbody>${rows}</tbody>
         </table>`;
 
-      // Drawer butonunu goster — analiz tamamlandı
+      // Drawer butonunu göster — analiz tamamlandı
       btnDrawer.classList.add('visible');
     } else {
       detectedIdsEl.innerHTML = '<div class="drawer-handle"></div><p style="padding:16px;color:#666;text-align:center;">Nesne bulunamadı</p>';
@@ -319,8 +339,7 @@ btnRetake.addEventListener('click', () => {
 });
 
 // --- MODEL CACHE ---
-// Ana sayfa URL'yi worker'a gonderir.
-// Worker kendi fetch eder, cache API'yi de kendisi kullanir.
+// Ana sayfa artık modeli indirmiyor — URL'yi worker'a gönderir.
 // --- INIT ---
 const ORT_FILES = [
   'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/ort.wasm.min.js',
@@ -355,7 +374,7 @@ async function init() {
       return null;
     }
 
-    // ORT dosyalarini cache'e al — hata olursa atla, worker zaten kendi yukler
+    // ORT dosyalarını cache'e al — hata olursa atla, worker zaten kendi yükler
     loadingMsg.textContent = 'ORT yükleniyor…';
     await Promise.all(ORT_FILES.map(async url => {
       try {

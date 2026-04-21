@@ -183,7 +183,6 @@ const offscreenModelCtx = offscreenModel.getContext('2d', { willReadFrequently: 
 /**
  * Kaynaktan (video/canvas) ROI'yi dogrudan 1024×1024 letterbox'a cizer.
  * Ara kırpma yok  sıfır kayma.
- *
  * @param {HTMLVideoElement|HTMLCanvasElement} src
  * @param {{ x, y, w, h }} roi  — tam kaynak piksel koordinatlari
  * @returns {{ tensor, roi, scale, offsetX, offsetY }}

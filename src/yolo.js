@@ -42,7 +42,7 @@ function onnxFindField(bytes, idx, end, targetField) {
 function parseInputSizeFromBuffer(buffer) {
   try {
     const bytes = new Uint8Array(buffer);
-    const idx   = [0]; // tek elemanlı dizi — minifier yeniden adlandıramaz
+    const idx   = [0]; // tek elemanlı dizi 
 
     const graphEnd = onnxFindField(bytes, idx, bytes.length, 7);  // ModelProto → graph
     if (graphEnd == null) return null;
@@ -96,7 +96,6 @@ function parseInputSizeFromBuffer(buffer) {
     return null;
   }
 }
-// ----------------------------------------------------------
 
 export function getInputSize() {
   if (!INPUT_SIZE) throw new Error('getInputSize: loadModel() henüz tamamlanmadı');
@@ -182,11 +181,11 @@ const offscreenModel = typeof OffscreenCanvas !== 'undefined'
 const offscreenModelCtx = offscreenModel.getContext('2d', { willReadFrequently: true });
 
 /**
- * Kaynaktan (video/canvas) ROI'yi doğrudan 1024×1024 letterbox'a çizer.
- * Ara kırpma yok → tek dönüşüm → sıfır kayma.
+ * Kaynaktan (video/canvas) ROI'yi dogrudan 1024×1024 letterbox'a cizer.
+ * Ara kırpma yok  sıfır kayma.
  *
  * @param {HTMLVideoElement|HTMLCanvasElement} src
- * @param {{ x, y, w, h }} roi  — tam kaynak piksel koordinatları
+ * @param {{ x, y, w, h }} roi  — tam kaynak piksel koordinatlari
  * @returns {{ tensor, roi, scale, offsetX, offsetY }}
  */
 
@@ -199,19 +198,19 @@ export function preprocessRoi(src, roi) {
   if (os.width !== INPUT_SIZE)  os.width  = INPUT_SIZE;
   if (os.height !== INPUT_SIZE) os.height = INPUT_SIZE;
 
-  // 1. Letterbox ölçeği — ROI'nin en dar kenarına göre
+  // 1. Letterbox olcegi — ROI'nin en dar kenarına gore
   const scale   = Math.min(INPUT_SIZE / roi.w, INPUT_SIZE / roi.h);
   const dw      = Math.round(roi.w * scale);
   const dh      = Math.round(roi.h * scale);
   const offsetX = (INPUT_SIZE - dw) / 2;
   const offsetY = (INPUT_SIZE - dh) / 2;
 
-  // 2. Gri arka plan + ROI'yi doğrudan hedef canvas'a çiz
+  // 2. Gri arka plan + ROI'yi dogrudan hedef canvas'a ciz
   ctx.fillStyle = '#808080';
   ctx.fillRect(0, 0, INPUT_SIZE, INPUT_SIZE);
   ctx.drawImage(src,
     roi.x, roi.y, roi.w, roi.h,   // kaynak: sadece ROI
-    offsetX, offsetY, dw, dh       // hedef: letterbox içi
+    offsetX, offsetY, dw, dh       // hedef: letterbox ici
   );
 
   // 3. Normalize → Float32 NCHW
@@ -255,13 +254,13 @@ export function postprocess(outputTensor, meta) {
     const bw = data[2 * cols + a];
     const bh = data[3 * cols + a];
 
-    // Letterbox → ROI koordinatı
+    // Letterbox → ROI koordinati
     const xRoi = (cx - offsetX) / scale - bw / (scale * 2);
     const yRoi = (cy - offsetY) / scale - bh / (scale * 2);
     const wRoi = bw / scale;
     const hRoi = bh / scale;
 
-    // ROI → Full-frame koordinatı (tek adımda)
+    // ROI → Full-frame koordinatİ
     detections.push({
       classId,
       x:          xRoi + roi.x,

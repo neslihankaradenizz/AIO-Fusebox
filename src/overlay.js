@@ -29,10 +29,7 @@ function getRoi(canvas) {
   };
 }
 
-/**
- * Canvas attribute boyutunu kaynağın GERÇEK piksel çözünürlüğüne eşitler.
- * clientWidth DEĞİL — videoWidth / naturalWidth kullanılır.
- */
+//Canvas attribute boyutunu kaynagin gercek piksel cozunurlugune esitler.
 export function syncCanvasSize(canvas, source) {
   let w, h;
 
@@ -89,10 +86,7 @@ export function drawRoi(canvas, hasDetections) {
   }
 }
 
-/**
- * Tespit kutularını canvas üzerine çizer.
- * canvas.width == source.naturalWidth olmalı → scaleX = 1.0 → kayma = 0
- */
+//Tespit kutularini canvas uzerine cizer.
 export function drawDetections(canvas, source, detections, roiOffset = { x: 0, y: 0 }) {
   const ctx = canvas.getContext('2d');
 
@@ -165,9 +159,7 @@ function drawLegend(canvas, ctx) {
 const offscreenFull = document.createElement('canvas');
 const offscreenCrop = document.createElement('canvas');
 
-/**
- * Tek kaynak kullanır → hem preprocess hem drawRoi aynı değerleri alır.
- */
+//Tek kaynak kullanir  hem preprocess hem drawRoi ayni degerleri alir.
 export function getRoiRect(src) {
   const isVideo = src instanceof HTMLVideoElement;
   const srcW    = isVideo ? src.videoWidth  : (src.naturalWidth  || src.width);

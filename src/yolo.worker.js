@@ -27,7 +27,7 @@ self.onmessage = async (e) => {
     try {
       await loadOrt();
 
-      // Ana sayfa  URL gönderiyor
+      // Ana sayfa  URL gonderiyor
       const CACHE_NAME = 'fusebox-v3';
       const CACHE_KEY  = 'best_fuseboxV1.onnx';
       const modelUrl   = payload.modelUrl;

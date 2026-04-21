@@ -126,10 +126,10 @@ function drawLegend(canvas, ctx) {
   const entries  = Object.entries(CLASS_STYLES);
   const cols     = 2;
   const rows     = Math.ceil(entries.length / cols);
-  const boxSize  = 12;
-  const fontSize = 11;
-  const padding  = 6;
-  const colW     = 58;
+  const boxSize  = 15;
+  const fontSize = 13;
+  const padding  = 8;
+  const colW     = 68;
   const lineH    = boxSize + 5;
   const legendW  = cols * colW + padding * 2;
   const legendH  = rows * lineH + padding * 2;

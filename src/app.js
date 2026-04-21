@@ -66,17 +66,18 @@ drawerStyle.textContent = `
   #btn-drawer {
     display: none;
     width: 100%;
-    padding: 11px 14px;
-    background: transparent;
-    color: #94a3b8;
-    border: 1px solid #1e293b;
-    border-radius: 10px;
-    font-size: 14px;
-    font-weight: 600;
+    padding: clamp(10px, 2.5vw, 14px);
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    font-size: clamp(0.85rem, 3.8vw, 1rem);
+    font-weight: 700;
     cursor: pointer;
-    margin-top: 6px;
-    letter-spacing: 0.02em;
-    transition: background 0.2s, color 0.2s;
+    margin-top: 0;
+    letter-spacing: 0.03em;
+    transition: opacity 0.15s, transform 0.1s;
+    touch-action: manipulation;
   }
   #btn-drawer.visible {
     display: block;

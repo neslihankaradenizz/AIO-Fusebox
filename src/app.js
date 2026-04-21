@@ -19,29 +19,27 @@ const btnRetake      = document.getElementById('btn-retake');
 
 let capturedCanvas  = null;
 let previewRunning  = false;
-let worker          = null;  // worker global — hem preview hem match kullanır
-let inferGeneration = 0;     // stale sonuçları elemek için nesil sayacı
+let worker          = null;  // worker global — hem preview hem match kullanir
+let inferGeneration = 0;     // stale sonuclar, elemek için nesil sayaci
 
 // --- DRAWER KURULUMU ---
-
-
 // Backdrop elementi
 const backdrop = document.createElement('div');
 backdrop.id = 'drawer-backdrop';
 document.body.appendChild(backdrop);
 
-// Drawer handle (detectedIdsEl içine ilk çocuk olarak eklenir)
+// Drawer handle 
 const drawerHandle = document.createElement('div');
 drawerHandle.className = 'drawer-handle';
 detectedIdsEl.prepend(drawerHandle);
 
-// TESPİT TABLOSU butonu — bottomBar'a eklenir
+// TESPİT TABLOSU butonu 
 const btnDrawer = document.createElement('button');
 btnDrawer.id = 'btn-drawer';
 btnDrawer.textContent = '📋 TESPİT TABLOSU';
 bottomBar.appendChild(btnDrawer);
 
-// Drawer aç/kapat yardımcıları
+// Drawer aç/kapat 
 function openDrawer() {
   detectedIdsEl.classList.add('drawer-open');
   backdrop.classList.add('visible');
@@ -71,20 +69,20 @@ window.addEventListener('resize', onResize);
 
 let lastHadDetections = false;
 let loopTimer         = null;
-let inferBusy         = false; // worker meşgulken tekrar gönderme
+let inferBusy         = false; // worker mesgulken tekrar gönderme
 
 // --- Worker'a inference gönder, Promise döner ---
-function workerInfer(imageBitmap, width, height) {
-  const myGen = ++inferGeneration;
-
+function workerInfer(imageBitmap, width, height, expectedGen) {
   return new Promise((resolve, reject) => {
     const onMsg = (e) => {
       if (e.data.type === 'result') {
         worker.removeEventListener('message', onMsg);
-        if (myGen === inferGeneration) resolve(e.data.detections);
+        // Sadece bu cagri icin beklenen nesil hâlâ gecerliyse resolve et
+        if (expectedGen === inferGeneration) resolve(e.data.detections);
+        else resolve([]); // stale — bos dizi dondurur
       } else if (e.data.type === 'error') {
         worker.removeEventListener('message', onMsg);
-        if (myGen === inferGeneration) reject(new Error(e.data.message));
+        if (expectedGen === inferGeneration) reject(new Error(e.data.message));
       }
     };
     worker.addEventListener('message', onMsg);
@@ -95,7 +93,7 @@ function workerInfer(imageBitmap, width, height) {
   });
 }
 
-// UI loop — sadece çizim, rAF ile 60fps
+// UI loop — sadece cizim, rAF ile 60fps
 function startUILoop() {
   function uiLoop() {
     if (!previewRunning) return;
@@ -106,18 +104,22 @@ function startUILoop() {
   requestAnimationFrame(uiLoop);
 }
 
-// Inference loop — worker üzerinden, düşük FPS
+// Inference loop — worker uzerinden, dusuk FPS
 function startInferenceLoop() {
   async function inferLoop() {
     if (!previewRunning) return;
 
     if (!inferBusy && video.readyState >= video.HAVE_ENOUGH_DATA) {
       inferBusy = true;
+      // Nesli burada okur
+      const myGen = ++inferGeneration;
       try {
         const roi    = getRoiRect(video);
         const bitmap = await createImageBitmap(video, roi.x, roi.y, roi.w, roi.h);
-        const detections = await workerInfer(bitmap, roi.w, roi.h);
-        lastHadDetections = detections.length > 0;
+        const detections = await workerInfer(bitmap, roi.w, roi.h, myGen);
+        if (myGen === inferGeneration) {
+          lastHadDetections = detections.length > 0;
+        }
       } catch {
         lastHadDetections = false;
       } finally {
@@ -138,6 +140,7 @@ function startPreviewLoop() {
 
 function stopPreviewLoop() {
   previewRunning = false;
+  // inferGeneration'ı artirma
   inferGeneration++;
   if (loopTimer !== null) {
     clearTimeout(loopTimer);
@@ -149,7 +152,7 @@ function stopPreviewLoop() {
 btnCapture.addEventListener('click', () => {
   stopPreviewLoop();
 
-  // Direkt ROI'yi kes — tam çözünürlüğe gerek yok
+  // Direkt ROI'yi keser
   const roi = getRoiRect(video);
   capturedCanvas = document.createElement('canvas');
   capturedCanvas.width  = roi.w;
@@ -158,7 +161,7 @@ btnCapture.addEventListener('click', () => {
     video, roi.x, roi.y, roi.w, roi.h, 0, 0, roi.w, roi.h
   );
 
-  // snapshot async yüklenir — onload beklenmezse naturalWidth=0 gelir
+  // snapshot async yuklenir — onload beklenmezse naturalWidth=0 gelir
   snapshot.onload = () => {
     syncCanvasSize(canvas, snapshot);
     clearCanvas(canvas);
@@ -190,15 +193,16 @@ btnMatch.addEventListener('click', async () => {
   statusText.textContent = 'Analiz ediliyor…';
 
   try {
-    // capturedCanvas boyutunu doğrudan kullan — snapshot async yüklenmeyi beklemez
+    // Canvas'ı capturedCanvas boyutuna esitle
     syncCanvasSize(canvas, capturedCanvas);
 
     const cropped = capturedCanvas;
     const roi     = { x: 0, y: 0, w: capturedCanvas.width, h: capturedCanvas.height };
+    const matchGen = ++inferGeneration;
 
-    // Her seferinde taze bitmap — önceki workerInfer'a transfer edilmiş olabilir
+    // Her seferinde taze bitmap
     const bitmap     = await createImageBitmap(cropped);
-    const detections = await workerInfer(bitmap, cropped.width, cropped.height);
+    const detections = await workerInfer(bitmap, cropped.width, cropped.height, matchGen);
 
     detections.sort((a, b) => (a.x + a.width / 2) - (b.x + b.width / 2));
 
@@ -206,7 +210,7 @@ btnMatch.addEventListener('click', async () => {
 
     clearCanvas(canvas);
     drawRoi(canvas, hasDetections);
-    drawDetections(canvas, snapshot, detections, { x: 0, y: 0 });
+    drawDetections(canvas, capturedCanvas, detections, { x: 0, y: 0 });
 
     const classIds = detections.map(d => d.classId);
     const { state } = validateCombination(classIds, detections, roi.w);
@@ -222,7 +226,7 @@ btnMatch.addEventListener('click', async () => {
       const LEFT_LABELS  = ['F1','F2','F3','F4','F5','F6','F7','F8','F9'];
       const RIGHT_LABELS = ['F10','F11','F12','F13','F14','F15','F16','F17','TEST'];
 
-      // Amp değerine göre CSS sınıfı
+      // Amp degerine gore CSS sinifi
       const ampClass = (val) => {
         if (!val || val === '—')        return 'amp-none';
         if (val.includes('empty'))      return 'amp-empty';
@@ -237,7 +241,7 @@ btnMatch.addEventListener('click', async () => {
         return '';
       };
 
-      // Tablo satırlarını oluştur
+      // Tablo satirlarini olusturma
       let rows = '';
       for (let i = 0; i < 9; i++) {
         const lLabel = LEFT_LABELS[i]  ?? '';
@@ -253,7 +257,7 @@ btnMatch.addEventListener('click', async () => {
         </tr>`;
       }
 
-      // Tabloyu drawer içine yerleştir
+      // Tabloyu drawer icine yerlestir
       detectedIdsEl.innerHTML = `
         <div class="drawer-handle"></div>
         <table>
@@ -272,7 +276,7 @@ btnMatch.addEventListener('click', async () => {
           <tbody>${rows}</tbody>
         </table>`;
 
-      // Drawer butonunu göster — analiz tamamlandı
+      // Drawer butonunu goster — analiz tamamlandı
       btnDrawer.classList.add('visible');
     } else {
       detectedIdsEl.innerHTML = '<div class="drawer-handle"></div><p style="padding:16px;color:#666;text-align:center;">Nesne bulunamadı</p>';
@@ -315,10 +319,8 @@ btnRetake.addEventListener('click', () => {
 });
 
 // --- MODEL CACHE ---
-// Ana sayfa artık modeli indirmiyor — URL'yi worker'a gönderir.
-// Worker kendi fetch eder, cache API'yi de kendisi kullanır.
-// Bu sayede büyük ArrayBuffer ana sayfa RAM'ini hiç doldurmaz.
-
+// Ana sayfa URL'yi worker'a gonderir.
+// Worker kendi fetch eder, cache API'yi de kendisi kullanir.
 // --- INIT ---
 const ORT_FILES = [
   'https://aoi-fusebox1.neslihan-krdnz53.workers.dev/ort.wasm.min.js',
@@ -353,7 +355,7 @@ async function init() {
       return null;
     }
 
-    // ORT dosyalarını cache'e al — hata olursa atla, worker zaten kendi yükler
+    // ORT dosyalarini cache'e al — hata olursa atla, worker zaten kendi yukler
     loadingMsg.textContent = 'ORT yükleniyor…';
     await Promise.all(ORT_FILES.map(async url => {
       try {
